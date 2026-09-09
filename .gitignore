@@ -1,0 +1,22 @@
+# Generated data - reproducible with `python tasks.py data`
+data/observed/*
+!data/observed/.gitkeep
+data/ground_truth/*
+!data/ground_truth/.gitkeep
+data/warehouse/*.duckdb
+data/warehouse/*.db
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+*.egg-info/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

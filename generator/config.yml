@@ -1,0 +1,409 @@
+# =============================================================================
+# Voltora - synthetic world configuration
+# =============================================================================
+# FROZEN 2026-09-09, before any data was generated.
+#
+# The `conditions`, `scenarios`, `demand`, `sensitivity` and `falsification`
+# blocks are pre-registered. See docs/04-decisions-log.md. They must not be
+# modified after generation except to fix an outright bug, and any such change
+# must be logged as a bug fix.
+#
+# Hemisphere assumption: northern (summer = June-August).
+# All entities are fictional.
+# =============================================================================
+
+meta:
+  world_version: 1
+  seed: 20260909
+  start_date: "2024-01-01"
+  end_date: "2025-12-31"
+  timezone: "UTC"
+  normalize_season_factors: true   # each profile is rescaled to mean 1.0
+
+# -----------------------------------------------------------------------------
+# Network structure
+# -----------------------------------------------------------------------------
+network:
+  roster_file: "network.yml"
+  regions: [north, central, coast]
+  site_types: [highway, urban, mall, fleet_depot]
+  traffic_tiers: [high, standard]
+  expected_station_count: 40
+  expected_peer_group_size: 5
+
+  connector_bounds:
+    highway:     {min: 4, max: 6}
+    urban:       {min: 2, max: 3}
+    mall:        {min: 2, max: 4}
+    fleet_depot: {min: 4, max: 8}
+
+  power_profile_by_site_type:
+    highway:     dc150
+    fleet_depot: dc150
+    urban:       mixed_dc50_ac22
+    mall:        mixed_dc50_ac22
+
+  power_profiles:
+    dc150:
+      connectors:
+        - {rated_kw: 150, standard: CCS, share: 1.0}
+    mixed_dc50_ac22:
+      connectors:
+        - {rated_kw: 50, standard: CCS,   share: 0.6}
+        - {rated_kw: 22, standard: TYPE2, share: 0.4}
+
+crews:
+  - {crew_id: "CR-A", regions: [north, central], weekly_visit_capacity: 3}
+  - {crew_id: "CR-B", regions: [coast, central], weekly_visit_capacity: 2}
+
+# -----------------------------------------------------------------------------
+# Demand generating process (the healthy world)
+# -----------------------------------------------------------------------------
+demand:
+  base_daily_sessions:
+    highway:     {high: 42, standard: 26}
+    urban:       {high: 34, standard: 20}
+    mall:        {high: 22, standard: 13}
+    fleet_depot: {high: 30, standard: 18}
+
+  # Station-level idiosyncrasy. Set on plausibility grounds, NOT tuned to make
+  # peer groups useful. High within-group variance weakens peer groups; that is
+  # a legitimate outcome (see F1).
+  within_group_cv: 0.28
+
+  annual_growth: 0.18
+  station_growth_sd: 0.06
+
+  dow_factors:            # Monday .. Sunday
+    highway:     [0.85, 0.85, 0.88, 0.95, 1.25, 1.45, 1.35]
+    urban:       [1.10, 1.12, 1.12, 1.10, 1.05, 0.80, 0.70]
+    mall:        [0.80, 0.82, 0.85, 0.95, 1.20, 1.45, 1.30]
+    fleet_depot: [1.20, 1.20, 1.18, 1.18, 1.10, 0.60, 0.35]
+
+  # Seasonality differs by site type on a defensible causal story:
+  # highway peaks in summer (road trips), mall in December (shopping season),
+  # urban dips in summer (people leave the city), fleet depots are near flat.
+  # This is what MIGHT make peer groups useful - and the analyst could instead
+  # estimate each station's own seasonality from 24 months of history, so the
+  # advantage is genuinely uncertain.
+  season_factors:         # January .. December
+    highway:     [0.82, 0.84, 0.92, 1.00, 1.05, 1.18, 1.32, 1.30, 1.08, 0.98, 0.88, 0.95]
+    urban:       [1.05, 1.04, 1.02, 1.00, 0.98, 0.92, 0.86, 0.88, 1.00, 1.05, 1.06, 1.02]
+    mall:        [0.85, 0.84, 0.92, 0.98, 1.00, 1.02, 1.05, 1.03, 0.98, 1.02, 1.12, 1.42]
+    fleet_depot: [0.90, 0.98, 1.02, 1.02, 1.03, 1.03, 1.02, 1.02, 1.03, 1.03, 1.00, 0.82]
+
+  # Arrivals within a day: mixture of gaussians over hour-of-day.
+  arrival_hour_profile:
+    highway:     {peaks: [{mu: 11, sd: 3.0, w: 0.45}, {mu: 17, sd: 3.0, w: 0.55}]}
+    urban:       {peaks: [{mu: 9,  sd: 2.0, w: 0.40}, {mu: 19, sd: 2.2, w: 0.60}]}
+    mall:        {peaks: [{mu: 13, sd: 2.5, w: 0.35}, {mu: 19, sd: 2.5, w: 0.65}]}
+    fleet_depot: {peaks: [{mu: 6,  sd: 1.5, w: 0.25}, {mu: 22, sd: 3.0, w: 0.75}]}
+
+sessions:
+  by_rated_kw:
+    150: {mean_kwh: 32, sd_kwh: 11, mean_minutes: 22, sd_minutes: 8}
+    50:  {mean_kwh: 24, sd_kwh: 9,  mean_minutes: 35, sd_minutes: 12}
+    22:  {mean_kwh: 14, sd_kwh: 6,  mean_minutes: 55, sd_minutes: 18}
+  min_minutes: 4
+  energy_decimals: 1
+
+# -----------------------------------------------------------------------------
+# L7 congestion - a REAL loss mechanism the ERV does not model, by design.
+# This is what stops the ERV from being a perfect mirror of the world.
+# -----------------------------------------------------------------------------
+congestion:
+  enabled: true
+  balk_probability_when_full: 0.85
+  ground_truth_only: true
+
+# -----------------------------------------------------------------------------
+# Ambient temperature - GROUND TRUTH ONLY.
+# Latent driver of multiple performance mechanisms, particularly L2 intermittent
+# faults and L3 power derating. Never written to data/observed/.
+# -----------------------------------------------------------------------------
+ambient_temperature:
+  annual_mean_c: 15.0
+  annual_amplitude_c: 11.0
+  peak_day_of_year: 205
+  region_offset_c: {north: -2.5, central: 0.0, coast: 1.5}
+  daily_noise_sd_c: 3.0
+  hot_day_threshold_c: 30.0
+
+# -----------------------------------------------------------------------------
+# Latent conditions
+# -----------------------------------------------------------------------------
+conditions:
+
+  L1_connector_hard_fault:
+    scope: connector
+    field_fixable: true
+    base_hazard_per_connector_day: 0.00012
+    age_multiplier_per_year: 0.80
+    utilization_multiplier: 0.50
+    severity: {type: step, value: 1.0}
+    self_resolution_probability: 0.0
+    visit_success_probability: 0.95
+
+  # Manifests as elevated session failures ONLY. It does not lower
+  # capacity-weighted availability: state telemetry keeps reporting `available`.
+  # This is the premise of scenario S2 and of P1 being a weak baseline.
+  L2_connector_intermittent_fault:
+    scope: connector
+    field_fixable: true
+    base_hazard_per_connector_day: 0.00035
+    utilization_multiplier: 1.20
+    hot_day_multiplier: 1.60
+    severity:
+      type: logistic_ramp
+      ramp_days: {min: 10, max: 30}
+      max_failure_rate: {min: 0.20, max: 0.40}
+    self_resolution_probability: 0.25
+    self_resolution_requires_cool_period: true
+    visit_success_probability: 0.75
+
+  L3_power_derate:
+    scope: connector
+    field_fixable: true
+    base_hazard_per_connector_day: 0.00020
+    hot_day_multiplier: 2.20
+    severity:
+      type: linear_ramp
+      ramp_days: {min: 14, max: 42}
+      max_derate: {min: 0.15, max: 0.45}
+    seasonal_partial_recovery: 0.40
+    self_resolution_probability: 0.15
+    visit_success_probability: 0.70
+
+  L4_comms_module_failure:
+    scope: station
+    field_fixable: true
+    base_hazard_per_station_day: 0.00025
+    hardware_batch_multiplier: 6.0
+    severity: {type: step, value: 1.0}
+    intermittent_probability: 0.35
+    self_resolution_probability: 0.30
+    visit_success_probability: 0.90
+    effects:
+      heartbeats_suppressed: true
+      session_buffer_probability: 0.55     # buffered locally, uploaded late
+      session_loss_probability: 0.45       # never uploaded
+      buffer_delay_hours: {min: 2, max: 72}
+
+  L5_cable_damage:
+    scope: connector
+    field_fixable: true
+    base_hazard_per_connector_day: 0.00008
+    site_type_multiplier: {urban: 2.5, highway: 2.5, mall: 1.0, fleet_depot: 0.6}
+    overnight_only: true
+    severity: {type: step, value: 1.0}
+    self_resolution_probability: 0.0
+    visit_success_probability: 0.95
+    user_report_ticket_probability: 0.70
+
+  # A real problem a field crew CANNOT fix. Looks like L3 unless you check
+  # time-of-day. Tests the field_fixable filter.
+  L6_upstream_grid_limit:
+    scope: station
+    field_fixable: false
+    assignment: manual                     # placed only by scenario
+    severity:
+      type: peak_hours_only
+      derate: 0.35
+      peak_hours: [17, 18, 19, 20]
+    self_resolution_probability: 0.0
+    visit_success_probability: 0.05
+
+  # Emergent from demand vs connector capacity. Not a fault. Needs capex.
+  L7_congestion:
+    scope: station
+    field_fixable: false
+    assignment: emergent
+    visit_success_probability: 0.0
+
+# -----------------------------------------------------------------------------
+# Hardware batch - GROUND TRUTH, but correlated with `commissioned_at`, which IS
+# observed. The elevated L4 rate is therefore discoverable by cohort analysis.
+# Deliberately cross-cutting across site types, so peer groups do NOT capture it.
+# -----------------------------------------------------------------------------
+hardware_batch:
+  batch_id: "CM-2021B"
+  commissioned_between: ["2021-06-01", "2022-03-31"]
+  expected_member_count: 9
+
+# -----------------------------------------------------------------------------
+# Telemetry and data quality
+# -----------------------------------------------------------------------------
+telemetry:
+  heartbeat_interval_minutes: 5
+  transit_loss_rate: 0.012
+  firmware_changes:
+    # Deliberate red herring: coverage appears to drop, but nothing is broken.
+    - {station_id: "ST-027", effective_date: "2024-11-20", new_interval_minutes: 15}
+
+data_quality:
+  duplicate_session_rate: 0.003
+  allow_orphan_sessions: true
+  clock_skew:
+    - {station_id: "ST-009", offset_minutes: 3}
+    - {station_id: "ST-019", offset_minutes: -5}
+    - {station_id: "ST-036", offset_minutes: 2}
+    - {station_id: "ST-029", offset_minutes: 60, window: ["2025-04-01", "2025-05-10"]}
+
+# -----------------------------------------------------------------------------
+# Demand shocks - GROUND TRUTH. Shortfall with no fixable cause.
+# -----------------------------------------------------------------------------
+demand_shocks:
+  - {shock_id: "DS-1", station_id: "ST-003", cause: competitor_opened, multiplier: 0.75, from: "2025-03-01", to: null}
+  - {shock_id: "DS-2", station_id: "ST-016", cause: new_demand_source, multiplier: 1.30, from: "2024-09-01", to: null}
+  - {shock_id: "DS-3", station_id: "ST-008", cause: road_construction, multiplier: 0.60, from: "2025-06-16", to: "2025-07-28"}
+
+# -----------------------------------------------------------------------------
+# Designed scenarios.
+# These are the NARRATIVE cases for the notebooks. The backtest runs over the
+# whole population of ~150-250 randomly drawn condition episodes, not over these.
+# Evaluating only these would be scoring the answer key.
+# -----------------------------------------------------------------------------
+scenarios:
+  - id: S1
+    station_id: "ST-001"
+    condition: L1_connector_hard_fault
+    onset: "2024-04-08"
+    purpose: "Baseline detectability. Every policy should catch it."
+
+  - id: S2
+    station_id: "ST-031"
+    condition: L2_connector_intermittent_fault
+    onset: "2024-09-16"
+    purpose: "High traffic, state telemetry looks healthy. P1 should miss it."
+
+  - id: S3
+    station_id: "ST-037"
+    condition: L2_connector_intermittent_fault
+    onset: "2025-03-10"
+    purpose: "Same condition, low traffic. Expected genuine miss or very late detection."
+
+  - id: S4
+    station_id: "ST-021"
+    condition: L4_comms_module_failure
+    onset: "2025-05-05"
+    purpose: "Observability lane. Missingness caused by a fault."
+
+  - id: S5
+    station_id: "ST-003"
+    condition: null
+    links_shock: "DS-1"
+    onset: "2025-03-01"
+    purpose: "False positive trap. Demand loss, no equipment fault."
+
+  - id: S6
+    station_id: "ST-005"
+    condition: L3_power_derate
+    onset: "2024-11-04"
+    purpose: "Sessions still complete. Failure rate misses it."
+
+  - id: S7
+    station_id: "ST-011"
+    condition: L6_upstream_grid_limit
+    onset: "2024-07-01"
+    purpose: "Real problem, NOT field fixable. Tests the fixability filter."
+
+  - id: S8
+    station_id: "ST-027"
+    condition: null
+    links_firmware: true
+    onset: "2024-11-20"
+    purpose: "Coverage red herring. Apparent drop is a firmware interval change."
+
+  - id: S9
+    station_id: "ST-008"
+    condition: L3_power_derate
+    onset: "2025-06-02"
+    links_shock: "DS-3"
+    purpose: "Confounded. Mild derate overlapping a construction demand drop."
+
+  - id: S10
+    station_id: "ST-013"
+    condition: L1_connector_hard_fault
+    onset: "2025-01-20"
+    purpose: "Late-commissioned station. No 90 days of healthy baseline."
+
+  - id: S11
+    station_id: null
+    scope: hardware_batch
+    condition: L4_comms_module_failure
+    onset: null
+    purpose: "Discoverable cohort structure that peer groups do NOT capture."
+
+  - id: S12
+    station_id: ["ST-004", "ST-010"]
+    condition: L1_connector_hard_fault
+    onset: "2025-08-11"
+    purpose: "Two conditions, same region, same week. Capacity constraint binds."
+
+  - id: S13
+    station_id: "ST-015"
+    condition: L7_congestion
+    onset: "2024-01-01"
+    purpose: "Sustained shortfall with perfect health. ERV does not and should not capture it."
+
+# -----------------------------------------------------------------------------
+# Backtest
+# -----------------------------------------------------------------------------
+backtest:
+  weeks: 26
+  holdout_weeks: 8                    # the last 8 of the 26, evaluated ONCE
+  weekly_visit_capacity: 5
+  capacity_sensitivity: [3, 5, 8]
+  bootstrap_iterations: 200
+  policies:
+    - P0_random
+    - P1_worst_uptime
+    - P2_ticket_age
+    - P3_erv_peer_baseline
+    - P4_erv_network_baseline         # P3 - P4 isolates the peer group contribution
+  primary_metrics: [recovered_kwh, wasted_trip_rate]
+  secondary_metrics: [days_to_detection]
+  report_lanes_separately: true       # throughput lane vs observability lane
+
+# Prevalence sensitivity: the two mechanisms that most favour the ERV are L2 and
+# L3. Their prevalence is fixed a priori and the backtest reports how policy
+# ranking changes at half and double. If the ranking flips within a plausible
+# parameter range, the ERV is not robustly better - and that gets published.
+sensitivity:
+  l2_prevalence_multipliers: [0.5, 1.0, 2.0]
+  l3_prevalence_multipliers: [0.5, 1.0, 2.0]
+
+# -----------------------------------------------------------------------------
+# PRE-REGISTERED falsification thresholds. Frozen 2026-09-09, before data.
+# See docs/04-decisions-log.md. DO NOT MODIFY.
+# -----------------------------------------------------------------------------
+falsification:
+  frozen_on: "2026-09-09"
+  frozen_before_data_generation: true
+
+  F1_peer_groups_add_no_value:
+    logic: OR
+    min_kwh_improvement_pct: 3.0
+    min_regions_with_improvement: 2
+    total_regions: 3
+
+  F2_erv_does_not_justify_complexity:
+    logic: AND
+    min_kwh_improvement_pct_vs_best_simple: 10.0
+    min_wasted_trip_reduction_pp: 5.0
+
+  F3_mechanism_adds_no_information:
+    method: leave_one_mechanism_out
+    min_weeks_changing_top5_pct: 10.0
+
+  F4_recommendation_too_unstable:
+    max_unstable_weeks_pct: 25.0
+    min_overlap_of_top5: 3
+
+  F5_low_traffic_coverage_bias:
+    max_ratio_low_vs_high_quartile: 0.5
+    detection_window_weeks: 3
+    min_evaluable_episodes_per_quartile: 10
+
+  F6_corrected_availability_changes_nothing:
+    max_top5_agreement_pct: 90.0

@@ -1,0 +1,70 @@
+# =============================================================================
+# Voltora - station roster. FROZEN 2026-09-09.
+# =============================================================================
+# 40 stations, 8 peer groups (site_type x traffic_tier) of 5 each.
+#
+# `commissioned_at` spans 2019-2023 for the 36 stations already operating when
+# the data window opens, plus 4 commissioned inside the window (left-censored
+# history, no 90-day healthy baseline available).
+#
+# Stations commissioned between 2021-06-01 and 2022-03-31 carry the CM-2021B
+# comms module batch (ground truth) with an elevated L4 hazard. The batch is
+# cross-cutting across site types by design.
+# =============================================================================
+
+stations:
+  # --- highway / high ---------------------------------------------------------
+  - {station_id: "ST-001", region: north,   site_type: highway,     traffic_tier: high,     connectors: 5, commissioned_at: "2019-04-12"}
+  - {station_id: "ST-002", region: central, site_type: highway,     traffic_tier: high,     connectors: 6, commissioned_at: "2021-08-03"}
+  - {station_id: "ST-003", region: coast,   site_type: highway,     traffic_tier: high,     connectors: 4, commissioned_at: "2020-02-18"}
+  - {station_id: "ST-004", region: north,   site_type: highway,     traffic_tier: high,     connectors: 5, commissioned_at: "2022-01-25"}
+  - {station_id: "ST-005", region: central, site_type: highway,     traffic_tier: high,     connectors: 6, commissioned_at: "2023-05-09"}
+
+  # --- highway / standard -----------------------------------------------------
+  - {station_id: "ST-006", region: coast,   site_type: highway,     traffic_tier: standard, connectors: 4, commissioned_at: "2019-09-30"}
+  - {station_id: "ST-007", region: north,   site_type: highway,     traffic_tier: standard, connectors: 4, commissioned_at: "2022-05-16"}
+  - {station_id: "ST-008", region: central, site_type: highway,     traffic_tier: standard, connectors: 5, commissioned_at: "2020-07-07"}
+  - {station_id: "ST-009", region: coast,   site_type: highway,     traffic_tier: standard, connectors: 4, commissioned_at: "2023-02-14"}
+  - {station_id: "ST-010", region: north,   site_type: highway,     traffic_tier: standard, connectors: 5, commissioned_at: "2022-09-21"}
+
+  # --- urban / high -----------------------------------------------------------
+  - {station_id: "ST-011", region: central, site_type: urban,       traffic_tier: high,     connectors: 3, commissioned_at: "2020-05-11"}
+  - {station_id: "ST-012", region: coast,   site_type: urban,       traffic_tier: high,     connectors: 3, commissioned_at: "2021-07-06"}
+  - {station_id: "ST-013", region: north,   site_type: urban,       traffic_tier: high,     connectors: 2, commissioned_at: "2024-11-15"}
+  - {station_id: "ST-014", region: central, site_type: urban,       traffic_tier: high,     connectors: 3, commissioned_at: "2022-02-08"}
+  - {station_id: "ST-015", region: coast,   site_type: urban,       traffic_tier: high,     connectors: 2, commissioned_at: "2019-11-22"}
+
+  # --- urban / standard -------------------------------------------------------
+  - {station_id: "ST-016", region: north,   site_type: urban,       traffic_tier: standard, connectors: 2, commissioned_at: "2020-10-05"}
+  - {station_id: "ST-017", region: central, site_type: urban,       traffic_tier: standard, connectors: 3, commissioned_at: "2023-08-17"}
+  - {station_id: "ST-018", region: coast,   site_type: urban,       traffic_tier: standard, connectors: 2, commissioned_at: "2021-09-13"}
+  - {station_id: "ST-019", region: north,   site_type: urban,       traffic_tier: standard, connectors: 3, commissioned_at: "2019-06-24"}
+  - {station_id: "ST-020", region: central, site_type: urban,       traffic_tier: standard, connectors: 2, commissioned_at: "2022-11-29"}
+
+  # --- mall / high ------------------------------------------------------------
+  - {station_id: "ST-021", region: coast,   site_type: mall,        traffic_tier: high,     connectors: 4, commissioned_at: "2020-03-16"}
+  - {station_id: "ST-022", region: north,   site_type: mall,        traffic_tier: high,     connectors: 3, commissioned_at: "2022-03-02"}
+  - {station_id: "ST-023", region: central, site_type: mall,        traffic_tier: high,     connectors: 4, commissioned_at: "2019-08-19"}
+  - {station_id: "ST-024", region: coast,   site_type: mall,        traffic_tier: high,     connectors: 3, commissioned_at: "2024-06-10"}
+  - {station_id: "ST-025", region: north,   site_type: mall,        traffic_tier: high,     connectors: 4, commissioned_at: "2023-01-31"}
+
+  # --- mall / standard --------------------------------------------------------
+  - {station_id: "ST-026", region: central, site_type: mall,        traffic_tier: standard, connectors: 2, commissioned_at: "2021-06-15"}
+  - {station_id: "ST-027", region: coast,   site_type: mall,        traffic_tier: standard, connectors: 3, commissioned_at: "2020-12-01"}
+  - {station_id: "ST-028", region: north,   site_type: mall,        traffic_tier: standard, connectors: 2, commissioned_at: "2023-06-27"}
+  - {station_id: "ST-029", region: central, site_type: mall,        traffic_tier: standard, connectors: 3, commissioned_at: "2022-07-12"}
+  - {station_id: "ST-030", region: coast,   site_type: mall,        traffic_tier: standard, connectors: 2, commissioned_at: "2019-02-26"}
+
+  # --- fleet_depot / high -----------------------------------------------------
+  - {station_id: "ST-031", region: north,   site_type: fleet_depot, traffic_tier: high,     connectors: 7, commissioned_at: "2020-08-14"}
+  - {station_id: "ST-032", region: central, site_type: fleet_depot, traffic_tier: high,     connectors: 8, commissioned_at: "2021-10-20"}
+  - {station_id: "ST-033", region: coast,   site_type: fleet_depot, traffic_tier: high,     connectors: 6, commissioned_at: "2024-09-01"}
+  - {station_id: "ST-034", region: north,   site_type: fleet_depot, traffic_tier: high,     connectors: 6, commissioned_at: "2022-05-04"}
+  - {station_id: "ST-035", region: central, site_type: fleet_depot, traffic_tier: high,     connectors: 7, commissioned_at: "2019-05-28"}
+
+  # --- fleet_depot / standard -------------------------------------------------
+  - {station_id: "ST-036", region: coast,   site_type: fleet_depot, traffic_tier: standard, connectors: 5, commissioned_at: "2020-11-09"}
+  - {station_id: "ST-037", region: north,   site_type: fleet_depot, traffic_tier: standard, connectors: 4, commissioned_at: "2023-03-21"}
+  - {station_id: "ST-038", region: central, site_type: fleet_depot, traffic_tier: standard, connectors: 4, commissioned_at: "2025-02-20"}
+  - {station_id: "ST-039", region: coast,   site_type: fleet_depot, traffic_tier: standard, connectors: 5, commissioned_at: "2021-12-08"}
+  - {station_id: "ST-040", region: north,   site_type: fleet_depot, traffic_tier: standard, connectors: 4, commissioned_at: "2019-10-15"}
