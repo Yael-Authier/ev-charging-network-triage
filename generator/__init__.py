@@ -1,0 +1,1 @@
+"""Synthetic world generator for the Voltora EV charging network."""

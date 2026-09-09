@@ -30,6 +30,9 @@ network:
   traffic_tiers: [high, standard]
   expected_station_count: 40
   expected_peer_group_size: 5
+  # Minimum stations for peer-group statistics to mean anything. Below this the
+  # fallback hierarchy applies: site_type x traffic_tier -> site_type -> network.
+  min_peer_group_size: 4
 
   connector_bounds:
     highway:     {min: 4, max: 6}
@@ -229,6 +232,42 @@ hardware_batch:
   batch_id: "CM-2021B"
   commissioned_between: ["2021-06-01", "2022-03-31"]
   expected_member_count: 9
+
+# -----------------------------------------------------------------------------
+# Operational fault catalogue - OBSERVED, except for `produced_by`.
+#
+# Codes are deliberately COARSER than the latent conditions. The latent-to-code
+# mapping is many-to-one so that a ticket never reveals the latent condition.
+#
+# FC-LOW-POWER is the central trap: it covers both L3 (field fixable) and L6
+# (NOT field fixable) and declares field_fixable: true, because that class of
+# fault normally is fixable in the field. The catalogue is therefore NOT
+# sufficient to know whether a visit will help - the analyst has to find the
+# time-of-day discriminator.
+#
+# `produced_by` is GROUND TRUTH and must never be written to data/observed/.
+# L7 congestion produces no ticket: it is not a fault.
+# -----------------------------------------------------------------------------
+fault_catalog:
+  - fault_code: "FC-CONN-DOWN"
+    description: "Connector reported unavailable"
+    field_fixable: true
+    produced_by: [L1_connector_hard_fault, L5_cable_damage]
+
+  - fault_code: "FC-CHG-ABORT"
+    description: "Charging sessions aborting before completion"
+    field_fixable: true
+    produced_by: [L2_connector_intermittent_fault]
+
+  - fault_code: "FC-LOW-POWER"
+    description: "Delivered power below expected for the connector rating"
+    field_fixable: true
+    produced_by: [L3_power_derate, L6_upstream_grid_limit]
+
+  - fault_code: "FC-NO-COMMS"
+    description: "Station not reporting telemetry"
+    field_fixable: true
+    produced_by: [L4_comms_module_failure]
 
 # -----------------------------------------------------------------------------
 # Telemetry and data quality

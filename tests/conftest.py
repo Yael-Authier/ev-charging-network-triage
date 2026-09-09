@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+# Make `generator` and `src` importable without packaging the project.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 
 def _load_yaml(relative_path: str) -> dict:
@@ -16,6 +21,12 @@ def _load_yaml(relative_path: str) -> dict:
     assert path.exists(), f"missing file: {relative_path}"
     with path.open("r", encoding="utf-8") as handle:
         return yaml.safe_load(handle)
+
+
+@pytest.fixture(scope="session")
+def repo_root() -> Path:
+    """Absolute path to the repository root."""
+    return REPO_ROOT
 
 
 @pytest.fixture(scope="session")
@@ -32,5 +43,13 @@ def network() -> dict:
 
 @pytest.fixture(scope="session")
 def stations(network: dict) -> list[dict]:
-    """The list of station records."""
+    """The raw list of station records from the roster."""
     return network["stations"]
+
+
+@pytest.fixture(scope="session")
+def world():
+    """The static world, built from the frozen configuration."""
+    from generator import world as world_module
+
+    return world_module.build_world()

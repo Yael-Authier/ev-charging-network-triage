@@ -1,0 +1,1 @@
+"""Analytical layer. Must never import from `generator`."""

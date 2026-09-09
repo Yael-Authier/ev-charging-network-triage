@@ -246,3 +246,73 @@ After removing `ST-007`, the batch keeps 9 members spanning all four site types
 
 scenario S11 keeps its purpose.
 
+---
+
+## 2026-09-09 — Block 2 implementation decisions
+
+**All decided before any data was generated.** None of them touches F1-F6, a
+prevalence, a severity path or the information boundary.
+
+### 1. `generator/world.py` writes nothing
+
+It is a pure library: it reads the two YAML files and returns in-memory objects.
+All file writing is concentrated in a single block 3 module, so the leakage guard
+has exactly one place to watch, and block 2 is testable without touching disk.
+
+### 2. Peer groups live in `src/`, not in `generator/`
+
+The generator does not use peer groups: the synthetic world defines seasonality
+per `site_type`, and the peer group is the *analytical* approximation to it.
+Keeping it in `generator/` would force the analysis layer to import generator
+code, which is the path by which a ground-truth import eventually creeps in.
+Rule that follows: **`src/` never imports from `generator/`.**
+
+### 3. `min_peer_group_size` is now machine-readable
+
+The constitution froze a minimum of 4 stations per peer group, but the number
+lived only in prose. It is now `network.min_peer_group_size: 4` in `config.yml`
+with a test pinning it. Not a change of a frozen value: a threshold that exists
+only in a document can be violated with nothing to warn.
+
+### 4. Fault catalogue contents
+
+The observed contract declared the `fault_catalog` table but never its contents.
+A 1:1 mapping to L1-L7 would mean a ticket reveals the latent condition, i.e.
+leakage by catalogue. Four *operational* codes are used instead, coarser than the
+latent conditions, with a many-to-one mapping:
+
+| `fault_code` | `field_fixable` | Produced by |
+|---|---|---|
+| `FC-CONN-DOWN` | true | L1, L5 |
+| `FC-CHG-ABORT` | true | L2 |
+| `FC-LOW-POWER` | true | **L3 and L6** |
+| `FC-NO-COMMS` | true | L4 |
+
+`FC-LOW-POWER` is the central trap: it covers L3 (field fixable) and L6 (not
+field fixable) and still declares `field_fixable: true`, because that class of
+fault normally is fixable in the field. The catalogue is therefore not sufficient
+to know whether a visit will help, and the analyst has to find the time-of-day
+discriminator. Without this, scenario S7 would have been trivial.
+
+`produced_by` is ground truth and is dropped from the observed frame.
+`L7_congestion` produces no ticket: it is not a fault.
+
+`typical_resolution_days` was dropped from the catalogue. Nothing in the MVP
+consumes it, and publishing it would let the ERV's `days_at_risk` read a
+resolution time straight off the catalogue instead of estimating it from
+observed episode history. That would shortcut the analytical work the third ERV
+factor is meant to demonstrate, and anchor the estimate on a generator
+parameter. A test fails if the column reappears.
+
+### 5. Ambient temperature is region-daily
+
+One value per region per day; stations in a region share the day's temperature.
+Physically sensible, and it keeps temperature a genuine common driver. Per-station
+i.i.d. noise would dilute the unobserved confounding and make the exercise easier
+than it should be. Consequence: temperature-induced correlation appears *within*
+regions.
+
+### 6. Random stream discipline
+
+Every stochastic component draws from its own named stream, derived from the
+frozen seed with an explicit `spawn_key`:
