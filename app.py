@@ -51,6 +51,8 @@ st.info(
     "Priority scores use a provisional, explainable heuristic; they are not validated ERV predictions.",
     icon="ℹ️",
 )
+st.markdown("**Start here:** 1. Review the five recommended stations in **Priority queue**. 2. Assign a regional crew and schedule a visit in **Interventions**. 3. Resolve the visit, confirm fixed incidents, then inspect **Change history**.")
+st.caption("ERV means Expected Recovered Value, a separate research concept **not implemented** in this demo. Baseline means the unchanged initial synthetic snapshot.")
 snapshot = dashboard_snapshot()
 if "interventions" not in st.session_state or "history" not in st.session_state:
     demo_state = new_demo_state(snapshot["recommendations"])
@@ -89,6 +91,7 @@ with tab_queue:
             lambda station: st.session_state.interventions[station]["status"]
         ),
     )
+    st.caption("Score = severity + incident age (max 14) + affected connectors (max 20) + additional incidents (max 15). Ties break by station ID.")
     render_static_records(recommendations, columns=list(recommendations.columns))
 
     with st.expander("How the provisional priority score works"):
@@ -112,16 +115,19 @@ with tab_work:
         "Public demo. Changes stay in this browser session only, "
         "and do not dispatch technicians or update incident source data."
     )
+    if st.session_state.pop("flash_message", None):
+        st.success("Changes saved for this browser session.")
     metrics = intervention_metrics(st.session_state.interventions, as_of=snapshot["as_of"])
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Visits planned", metrics["planned"])
-    m2.metric("Crews assigned", metrics["assigned"])
+    m2.metric("Visits with crew", metrics["assigned"])
     m3.metric("Visits resolved", metrics["resolved"])
     m4.metric("Overdue visits", metrics["overdue"])
 
     station_options = [item["Station"] for item in snapshot["recommendations"]]
     selected_station = st.radio("Select recommended station", station_options, horizontal=True, key="station_choice")
     current = st.session_state.interventions[selected_station]
+    st.caption(f"Station {selected_station} · {current.get('region', 'Unknown')} region · Only its regional crew may be assigned. One active visit per crew per date.")
     with st.form("intervention_form"):
         crew = st.radio("Assigned crew", CREWS, index=CREWS.index(current["crew"]), horizontal=True, key=f"crew_{selected_station}")
         status_value = st.radio(
@@ -134,7 +140,7 @@ with tab_work:
             value=current["scheduled_for"] or snapshot["as_of"],
         )
         resolution_note = st.text_area(
-            "Resolution note (required when resolved)", value=current["resolution_note"]
+            "Resolution / blocking reason (required for Resolved or Blocked)", value=current["resolution_note"], key=f"note_{selected_station}"
         )
         submitted = st.form_submit_button("Save intervention", type="primary")
     if submitted:
@@ -152,7 +158,7 @@ with tab_work:
                 st.session_state.history, selected_station, previous, updated[selected_station]
             )
             st.session_state.interventions = updated
-            st.success(f"Intervention for {selected_station} updated for this session.")
+            st.session_state["flash_message"] = f"Intervention for {selected_station} saved."
             st.rerun()
         except ValueError as exc:
             st.error(str(exc))
@@ -179,6 +185,7 @@ with tab_work:
                 st.session_state.history, selected_station, previous, updated[selected_station]
             )
             st.session_state.interventions = updated
+            st.session_state["flash_message"] = f"Incident closures for {selected_station} saved."
             st.rerun()
         except ValueError as exc:
             st.error(str(exc))
@@ -199,6 +206,10 @@ with tab_work:
         demo_state = new_demo_state(snapshot["recommendations"])
         st.session_state.interventions = demo_state["interventions"]
         st.session_state.history = demo_state["history"]
+        for key in list(st.session_state.keys()):
+            if key == "station_choice" or key.startswith(("crew_", "status_", "note_", "closure_")):
+                del st.session_state[key]
+        st.session_state["flash_message"] = "Demo reset to the original snapshot."
         st.rerun()
 
 
