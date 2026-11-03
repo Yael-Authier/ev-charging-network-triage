@@ -13,6 +13,7 @@ def initial_interventions(recommendations: list[dict]) -> dict[str, dict]:
         item["Station"]: {
             "station_id": item["Station"],
             "rank": item["Rank"],
+            "region": item.get("Region", ""),
             "crew": "Unassigned",
             "status": "Pending",
             "scheduled_for": None,
@@ -43,6 +44,15 @@ def update_intervention(
         raise ValueError("Assign a crew before scheduling or progressing a visit")
     if status in {"Scheduled", "In progress"} and scheduled_for is None:
         raise ValueError("A scheduled date is required")
+    if status == "Blocked" and not resolution_note.strip():
+        raise ValueError("A blocking reason is required")
+    region = interventions[station_id].get("region", "")
+    if crew != "Unassigned" and region and crew != f"{region} crew":
+        raise ValueError(f"{crew} cannot serve {region} station {station_id}; choose the regional crew")
+    if status in {"Scheduled", "In progress"} and crew != "Unassigned" and scheduled_for is not None:
+        for other_id, other in interventions.items():
+            if other_id != station_id and other["crew"] == crew and other["status"] in {"Scheduled", "In progress"} and other["scheduled_for"] == scheduled_for:
+                raise ValueError(f"{crew} is already booked for {other_id} on {scheduled_for.isoformat()}")
     if status == "Resolved" and not resolution_note.strip():
         raise ValueError("A resolution note is required")
     updated = {key: dict(value) for key, value in interventions.items()}
