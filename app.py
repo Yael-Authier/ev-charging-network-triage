@@ -11,13 +11,10 @@ import pandas as pd
 import streamlit as st
 
 from demo.dashboard_data import dashboard_snapshot
-from demo.audit_history import (
-    read_history, record_event, describe_intervention_change, describe_closure_change,
-)
 from demo.incident_closure import incident_statuses, select_incident_closures
-from demo.intervention_store import load_interventions, save_interventions
+from demo.public_session import new_demo_state, record_visit_change, record_closure_change
 from demo.interventions import (
-    ALLOWED_STATUSES, CREWS, initial_interventions, intervention_metrics,
+    ALLOWED_STATUSES, CREWS, intervention_metrics,
     update_intervention,
 )
 
@@ -33,17 +30,15 @@ st.info(
     icon="ℹ️",
 )
 snapshot = dashboard_snapshot()
-if "interventions" not in st.session_state:
-    try:
-        st.session_state.interventions = load_interventions(snapshot["recommendations"])
-    except ValueError as exc:
-        st.error(f"Local intervention file needs attention: {exc}")
-        st.stop()
+if "interventions" not in st.session_state or "history" not in st.session_state:
+    demo_state = new_demo_state(snapshot["recommendations"])
+    st.session_state.interventions = demo_state["interventions"]
+    st.session_state.history = demo_state["history"]
 
 effective = pd.DataFrame(incident_statuses(snapshot["incidents"], st.session_state.interventions))
 active = effective[effective["Status"].isin(["Open", "Assigned", "In Progress"])]
 metrics = intervention_metrics(st.session_state.interventions, as_of=snapshot["as_of"])
-st.caption(f"Snapshot {snapshot['as_of'].isoformat()} · 40 stations · 5 weekly field visits · Single-user local demo")
+st.caption(f"Snapshot {snapshot['as_of'].isoformat()} · 40 stations · 5 weekly field visits · Independent browser-session demo")
 a, b, c, d = st.columns(4)
 a.metric("ACTIVE INCIDENTS", len(active), delta=len(active) - snapshot["open_incident_count"], delta_color="inverse")
 b.metric("AFFECTED STATIONS", active["Station"].nunique())
@@ -101,8 +96,8 @@ with tab_queue:
 with tab_work:
     st.subheader("Intervention management")
     st.caption(
-        "Single-user local demo. Changes are saved on this computer, "
-        "but do not dispatch technicians or update incident source data."
+        "Public demo. Changes stay in this browser session only, "
+        "and do not dispatch technicians or update incident source data."
     )
     metrics = intervention_metrics(st.session_state.interventions, as_of=snapshot["as_of"])
     m1, m2, m3, m4 = st.columns(4)
@@ -139,12 +134,11 @@ with tab_work:
                 scheduled_for=planned_date if status_value != "Pending" else None,
                 resolution_note=resolution_note,
             )
-            difference = describe_intervention_change(previous, updated[selected_station])
-            save_interventions(updated)
+            st.session_state.history = record_visit_change(
+                st.session_state.history, selected_station, previous, updated[selected_station]
+            )
             st.session_state.interventions = updated
-            if difference:
-                record_event(selected_station, "visit_updated", difference)
-            st.success(f"Intervention for {selected_station} saved locally.")
+            st.success(f"Intervention for {selected_station} updated for this session.")
             st.rerun()
         except ValueError as exc:
             st.error(str(exc))
@@ -160,10 +154,9 @@ with tab_work:
         try:
             previous = dict(st.session_state.interventions[selected_station])
             updated = select_incident_closures(st.session_state.interventions, selected_station, closed_ids, linked_ids)
-            difference = describe_closure_change(previous, updated[selected_station])
-            save_interventions(updated)
-            if previous.get("resolved_incident_ids", []) != updated[selected_station].get("resolved_incident_ids", []):
-                record_event(selected_station, "incidents_confirmed", difference)
+            st.session_state.history = record_closure_change(
+                st.session_state.history, selected_station, previous, updated[selected_station]
+            )
             st.session_state.interventions = updated
             st.rerun()
         except ValueError as exc:
@@ -182,9 +175,9 @@ with tab_work:
     ]
     st.dataframe(pd.DataFrame(intervention_rows), hide_index=True, width="stretch")
     if st.button("Reset demo interventions"):
-        st.session_state.interventions = initial_interventions(snapshot["recommendations"])
-        save_interventions(st.session_state.interventions)
-        record_event("ALL", "demo_reset", "All five intervention records reset to Pending")
+        demo_state = new_demo_state(snapshot["recommendations"])
+        st.session_state.interventions = demo_state["interventions"]
+        st.session_state.history = demo_state["history"]
         st.rerun()
 
 
@@ -203,17 +196,13 @@ with tab_incidents:
     if status != "All":
         filtered = filtered[filtered["Status"] == status]
     st.dataframe(filtered, hide_index=True, width="stretch")
-    st.caption("Synthetic data · Locally saved intervention records · No real dispatch or shared database.")
+    st.caption("Synthetic data · Isolated, temporary session changes · No real dispatch or shared database.")
 
 
 with tab_history:
     st.subheader("Change history")
-    st.caption("Local single-user audit log. Times are UTC; changes before this feature was added are not included.")
-    try:
-        events = read_history()
-    except ValueError as exc:
-        st.error(f"Local audit history needs attention: {exc}")
-        events = []
+    st.caption("Changes in this browser session only · Times in UTC · Reset clears this history.")
+    events = st.session_state.history
     if events:
         st.dataframe(
             pd.DataFrame(reversed(events)).rename(columns={
@@ -232,6 +221,6 @@ with tab_history:
 
 st.markdown(
     '<div class="voltora-footer">VOLTORA · Synthetic portfolio project · '
-    'Local single-user prototype · No live dispatch or production data</div>',
+    'Ephemeral per-session demo · No live dispatch or production data</div>',
     unsafe_allow_html=True,
 )
