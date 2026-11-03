@@ -33,8 +33,8 @@ st.caption(f"Snapshot date: {snapshot['as_of'].isoformat()} · Weekly field capa
 a, b, c, d = st.columns(4)
 a.metric("Stations", snapshot["station_count"])
 b.metric("Total incidents", snapshot["incident_count"])
-c.metric("Active incidents", snapshot["open_incident_count"])
-d.metric("Stations with active incidents", snapshot["affected_station_count"])
+c.metric("Baseline active incidents", snapshot["open_incident_count"])
+d.metric("Baseline affected stations", snapshot["affected_station_count"])
 
 st.divider()
 st.subheader("This week's recommended visits")
@@ -157,4 +157,7 @@ if region != "All":
 if status != "All":
     filtered = filtered[filtered["Status"] == status]
 st.dataframe(filtered, hide_index=True, width="stretch")
+active_rows = incidents[incidents["Status"].isin(["Open", "Assigned", "In Progress"])]
+st.metric("Active incidents after confirmed closures", len(active_rows))
+st.caption(f"Active stations after confirmed closures: {active_rows[\u0027Station\u0027].nunique()}")
 st.caption("Synthetic data · Locally saved intervention records · No real dispatch or shared database.")
