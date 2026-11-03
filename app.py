@@ -6,6 +6,7 @@ Launch from the repository root:
 from __future__ import annotations
 
 from pathlib import Path
+from html import escape
 
 import pandas as pd
 import streamlit as st
@@ -17,6 +18,27 @@ from demo.interventions import (
     ALLOWED_STATUSES, CREWS, intervention_metrics,
     update_intervention,
 )
+
+
+def render_static_records(frame: pd.DataFrame, *, columns: list[str], empty_message: str = "No records to display.") -> None:
+    """Render compact, escaped HTML cards without Streamlit's dynamic DataFrame bundle."""
+    if frame.empty:
+        st.info(empty_message)
+        return
+    for record in frame[columns].to_dict(orient="records"):
+        parts = []
+        for label, value in record.items():
+            shown = "" if pd.isna(value) else str(value)
+            parts.append(
+                '<div class="voltora-record-field"><span class="voltora-record-label">'
+                + escape(str(label)) + '</span><span class="voltora-record-value">'
+                + escape(shown) + '</span></div>'
+            )
+        st.markdown(
+            '<div class="voltora-record">' + "".join(parts) + '</div>',
+            unsafe_allow_html=True,
+        )
+
 
 st.set_page_config(page_title="Voltora | Operations Triage", page_icon="⚡", layout="wide")
 
@@ -67,16 +89,7 @@ with tab_queue:
             lambda station: st.session_state.interventions[station]["status"]
         ),
     )
-    st.dataframe(
-        recommendations,
-        hide_index=True,
-        width="stretch",
-        column_config={
-            "Visit status": st.column_config.TextColumn(
-                "Visit status", help="Current status of the frozen weekly visit plan"
-            ),
-        },
-    )
+    render_static_records(recommendations, columns=list(recommendations.columns))
 
     with st.expander("How the provisional priority score works"):
         st.markdown(
@@ -173,7 +186,7 @@ with tab_work:
         }
         for item in st.session_state.interventions.values()
     ]
-    st.dataframe(pd.DataFrame(intervention_rows), hide_index=True, width="stretch")
+    render_static_records(pd.DataFrame(intervention_rows), columns=list(intervention_rows[0]))
     if st.button("Reset demo interventions"):
         demo_state = new_demo_state(snapshot["recommendations"])
         st.session_state.interventions = demo_state["interventions"]
@@ -195,7 +208,8 @@ with tab_incidents:
         filtered = filtered[filtered["Region"] == region]
     if status != "All":
         filtered = filtered[filtered["Status"] == status]
-    st.dataframe(filtered, hide_index=True, width="stretch")
+    st.caption(f"{len(filtered)} incidents match the selected filters.")
+    render_static_records(filtered, columns=list(filtered.columns))
     st.caption("Synthetic data · Isolated, temporary session changes · No real dispatch or shared database.")
 
 
@@ -204,16 +218,13 @@ with tab_history:
     st.caption("Changes in this browser session only · Times in UTC · Reset clears this history.")
     events = st.session_state.history
     if events:
-        st.dataframe(
-            pd.DataFrame(reversed(events)).rename(columns={
-                "timestamp_utc": "Timestamp (UTC)",
-                "station": "Station",
-                "action": "Action",
-                "details": "Changes",
-            }),
-            hide_index=True,
-            width="stretch",
-        )
+        history_rows = pd.DataFrame(reversed(events)).rename(columns={
+            "timestamp_utc": "Timestamp (UTC)",
+            "station": "Station",
+            "action": "Action",
+            "details": "Changes",
+        })
+        render_static_records(history_rows, columns=list(history_rows.columns))
     else:
         st.info("No changes have been recorded yet.")
 
