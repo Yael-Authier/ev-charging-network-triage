@@ -5,6 +5,8 @@ Launch from the repository root:
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import pandas as pd
 import streamlit as st
 
@@ -21,51 +23,16 @@ from demo.interventions import (
 
 st.set_page_config(page_title="Voltora | Operations Triage", page_icon="⚡", layout="wide")
 
-st.title("⚡ Voltora")
-st.caption("EV charging network · Operations triage · Synthetic portfolio demonstration")
+st.markdown("<style>" + (Path(__file__).parent / "demo" / "voltora.css").read_text(encoding="utf-8") + "</style>", unsafe_allow_html=True)
+st.markdown('<div class="voltora-kicker">VOLTORA / NETWORK OPERATIONS</div>', unsafe_allow_html=True)
+st.title("⚡ VOLTORA")
+st.markdown('<div class="voltora-subtitle">EV charging · Field operations command center</div>', unsafe_allow_html=True)
 st.info(
-    "DEMO MODE — All stations and incidents are fictional. Priority scores use a "
-    "transparent provisional rule, not the validated expected-recovery (ERV) model.",
+    "SYNTHETIC DEMO — All stations and incidents are fictional. "
+    "Priority scores use a provisional, explainable heuristic; they are not validated ERV predictions.",
     icon="ℹ️",
 )
-
 snapshot = dashboard_snapshot()
-st.subheader("Network overview")
-st.caption(f"Snapshot date: {snapshot['as_of'].isoformat()} · Weekly field capacity: 5 visits")
-
-a, b, c, d = st.columns(4)
-a.metric("Stations", snapshot["station_count"])
-b.metric("Total incidents", snapshot["incident_count"])
-c.metric("Baseline active incidents", snapshot["open_incident_count"])
-d.metric("Baseline affected stations", snapshot["affected_station_count"])
-
-st.divider()
-st.subheader("This week's recommended visits")
-st.write(
-    "Five distinct stations selected by fault severity, incident age, affected connectors "
-    "and repeated open incidents. Scores are comparative heuristic points, not predicted impact."
-)
-recommendations = pd.DataFrame(snapshot["recommendations"])
-st.dataframe(recommendations, hide_index=True, width="stretch")
-
-with st.expander("How the provisional priority score works"):
-    st.markdown(
-        """
-        - **Severity:** low 10 · medium 30 · high 55 · critical 80 points.
-        - **Age:** 1 point per day open, capped at 14.
-        - **Affected connectors:** 5 points each, capped at 4 connectors.
-        - **Repeated incidents:** 5 points per additional active incident, capped at 3.
-        - Each station appears once. Ties are resolved by station ID.
-        - This is a demonstration rule, **not** an estimated recovered-energy model.
-        """
-    )
-
-st.divider()
-st.subheader("Intervention management")
-st.caption(
-    "Single-user local demo. Changes are saved on this computer, "
-    "but do not dispatch technicians or update incident source data."
-)
 if "interventions" not in st.session_state:
     try:
         st.session_state.interventions = load_interventions(snapshot["recommendations"])
@@ -73,126 +40,192 @@ if "interventions" not in st.session_state:
         st.error(f"Local intervention file needs attention: {exc}")
         st.stop()
 
+effective = pd.DataFrame(incident_statuses(snapshot["incidents"], st.session_state.interventions))
+active = effective[effective["Status"].isin(["Open", "Assigned", "In Progress"])]
 metrics = intervention_metrics(st.session_state.interventions, as_of=snapshot["as_of"])
-m1, m2, m3, m4 = st.columns(4)
-m1.metric("Visits planned", metrics["planned"])
-m2.metric("Crews assigned", metrics["assigned"])
-m3.metric("Visits resolved", metrics["resolved"])
-m4.metric("Overdue visits", metrics["overdue"])
+st.caption(f"Snapshot {snapshot['as_of'].isoformat()} · 40 stations · 5 weekly field visits · Single-user local demo")
+a, b, c, d = st.columns(4)
+a.metric("ACTIVE INCIDENTS", len(active), delta=len(active) - snapshot["open_incident_count"], delta_color="inverse")
+b.metric("AFFECTED STATIONS", active["Station"].nunique())
+c.metric("VISITS ASSIGNED", metrics["assigned"])
+d.metric("VISITS RESOLVED", metrics["resolved"])
+st.caption(
+    f"Baseline: {snapshot['open_incident_count']} active incidents / "
+    f"{snapshot['affected_station_count']} affected stations. "
+    "Confirmed closures are reflected above; the weekly plan stays fixed."
+)
+tab_queue, tab_work, tab_incidents, tab_history = st.tabs(
+    ["⚡ Priority queue", "🛠️ Interventions", "📋 Incidents", "🕒 Change history"]
+)
 
-station_options = [item["Station"] for item in snapshot["recommendations"]]
-selected_station = st.selectbox("Select recommended station", station_options)
-current = st.session_state.interventions[selected_station]
-with st.form("intervention_form"):
-    crew = st.selectbox("Assigned crew", CREWS, index=CREWS.index(current["crew"]))
-    status_value = st.selectbox(
-        "Intervention status", ALLOWED_STATUSES,
-        index=ALLOWED_STATUSES.index(current["status"]),
+with tab_queue:
+    st.subheader("This week's recommended visits")
+    st.write(
+        "Five distinct stations selected by fault severity, incident age, affected connectors "
+        "and repeated open incidents. Scores are comparative heuristic points, not predicted impact."
     )
-    planned_date = st.date_input(
-        "Visit date (used for scheduled / in-progress visits)",
-        value=current["scheduled_for"] or snapshot["as_of"],
-    )
-    resolution_note = st.text_area(
-        "Resolution note (required when resolved)", value=current["resolution_note"]
-    )
-    submitted = st.form_submit_button("Save intervention", type="primary")
-if submitted:
-    try:
-        previous = dict(st.session_state.interventions[selected_station])
-        updated = update_intervention(
-            st.session_state.interventions,
-            selected_station,
-            crew=crew,
-            status=status_value,
-            scheduled_for=planned_date if status_value != "Pending" else None,
-            resolution_note=resolution_note,
+    recommendations = pd.DataFrame(snapshot["recommendations"])
+    st.dataframe(recommendations, hide_index=True, width="stretch")
+
+    with st.expander("How the provisional priority score works"):
+        st.markdown(
+            """
+            - **Severity:** low 10 · medium 30 · high 55 · critical 80 points.
+            - **Age:** 1 point per day open, capped at 14.
+            - **Affected connectors:** 5 points each, capped at 4 connectors.
+            - **Repeated incidents:** 5 points per additional active incident, capped at 3.
+            - Each station appears once. Ties are resolved by station ID.
+            - This is a demonstration rule, **not** an estimated recovered-energy model.
+            """
         )
-        difference = describe_intervention_change(previous, updated[selected_station])
-        save_interventions(updated)
-        st.session_state.interventions = updated
-        if difference:
-            record_event(selected_station, "visit_updated", difference)
-        st.success(f"Intervention for {selected_station} saved locally.")
-        st.rerun()
-    except ValueError as exc:
-        st.error(str(exc))
 
-st.markdown("#### Incident closure")
-st.caption("Select only faults actually fixed during a resolved visit.")
-linked_ids = next((item["Incident IDs"].split(", ") for item in snapshot["recommendations"] if item["Station"] == selected_station), [])
-current_closures = st.session_state.interventions[selected_station].get("resolved_incident_ids", [])
-with st.form("incident_closure_form"):
-    closed_ids = st.multiselect("Incidents confirmed resolved", linked_ids, default=[item for item in current_closures if item in linked_ids])
-    close_submitted = st.form_submit_button("Save incident closure")
-if close_submitted:
-    try:
-        previous = dict(st.session_state.interventions[selected_station])
-        updated = select_incident_closures(st.session_state.interventions, selected_station, closed_ids, linked_ids)
-        difference = describe_closure_change(previous, updated[selected_station])
-        save_interventions(updated)
-        if previous.get("resolved_incident_ids", []) != updated[selected_station].get("resolved_incident_ids", []):
-            record_event(selected_station, "incidents_confirmed", difference)
-        st.session_state.interventions = updated
-        st.rerun()
-    except ValueError as exc:
-        st.error(str(exc))
 
-intervention_rows = [
-    {
-        "Station": item["station_id"],
-        "Rank": item["rank"],
-        "Crew": item["crew"],
-        "Status": item["status"],
-        "Visit date": item["scheduled_for"].isoformat() if item["scheduled_for"] else "",
-        "Resolution note": item["resolution_note"],
-    }
-    for item in st.session_state.interventions.values()
-]
-st.dataframe(pd.DataFrame(intervention_rows), hide_index=True, width="stretch")
-if st.button("Reset demo interventions"):
-    st.session_state.interventions = initial_interventions(snapshot["recommendations"])
-    save_interventions(st.session_state.interventions)
-    record_event("ALL", "demo_reset", "All five intervention records reset to Pending")
-    st.rerun()
+    st.caption("Frozen weekly plan · Priority scores are provisional, not recovered-energy estimates.")
 
-st.divider()
-st.subheader("Change history")
-st.caption("Local single-user audit log. Times are UTC; changes before this feature was added are not included.")
-try:
-    events = read_history()
-except ValueError as exc:
-    st.error(f"Local audit history needs attention: {exc}")
-    events = []
-if events:
-    st.dataframe(
-        pd.DataFrame(reversed(events)).rename(columns={
-            "timestamp_utc": "Timestamp (UTC)",
-            "station": "Station",
-            "action": "Action",
-            "details": "Changes",
-        }),
-        hide_index=True,
-        width="stretch",
+with tab_work:
+    st.subheader("Intervention management")
+    st.caption(
+        "Single-user local demo. Changes are saved on this computer, "
+        "but do not dispatch technicians or update incident source data."
     )
-else:
-    st.info("No changes have been recorded yet.")
+    if "interventions" not in st.session_state:
+        try:
+            st.session_state.interventions = load_interventions(snapshot["recommendations"])
+        except ValueError as exc:
+            st.error(f"Local intervention file needs attention: {exc}")
+            st.stop()
 
-st.divider()
-st.subheader("Incident explorer")
-incidents = pd.DataFrame(incident_statuses(snapshot["incidents"], st.session_state.interventions))
-left, right = st.columns(2)
-with left:
-    region = st.selectbox("Region", ["All", *sorted(incidents["Region"].unique())])
-with right:
-    status = st.selectbox("Status", ["All", *sorted(incidents["Status"].unique())])
-filtered = incidents.copy()
-if region != "All":
-    filtered = filtered[filtered["Region"] == region]
-if status != "All":
-    filtered = filtered[filtered["Status"] == status]
-st.dataframe(filtered, hide_index=True, width="stretch")
-active_rows = incidents[incidents["Status"].isin(["Open", "Assigned", "In Progress"])]
-st.metric("Active incidents after confirmed closures", len(active_rows))
-st.caption("Active stations after confirmed closures: " + str(active_rows["Station"].nunique()))
-st.caption("Synthetic data · Locally saved intervention records · No real dispatch or shared database.")
+    metrics = intervention_metrics(st.session_state.interventions, as_of=snapshot["as_of"])
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Visits planned", metrics["planned"])
+    m2.metric("Crews assigned", metrics["assigned"])
+    m3.metric("Visits resolved", metrics["resolved"])
+    m4.metric("Overdue visits", metrics["overdue"])
+
+    station_options = [item["Station"] for item in snapshot["recommendations"]]
+    selected_station = st.selectbox("Select recommended station", station_options)
+    current = st.session_state.interventions[selected_station]
+    with st.form("intervention_form"):
+        crew = st.selectbox("Assigned crew", CREWS, index=CREWS.index(current["crew"]))
+        status_value = st.selectbox(
+            "Intervention status", ALLOWED_STATUSES,
+            index=ALLOWED_STATUSES.index(current["status"]),
+        )
+        planned_date = st.date_input(
+            "Visit date (used for scheduled / in-progress visits)",
+            value=current["scheduled_for"] or snapshot["as_of"],
+        )
+        resolution_note = st.text_area(
+            "Resolution note (required when resolved)", value=current["resolution_note"]
+        )
+        submitted = st.form_submit_button("Save intervention", type="primary")
+    if submitted:
+        try:
+            previous = dict(st.session_state.interventions[selected_station])
+            updated = update_intervention(
+                st.session_state.interventions,
+                selected_station,
+                crew=crew,
+                status=status_value,
+                scheduled_for=planned_date if status_value != "Pending" else None,
+                resolution_note=resolution_note,
+            )
+            difference = describe_intervention_change(previous, updated[selected_station])
+            save_interventions(updated)
+            st.session_state.interventions = updated
+            if difference:
+                record_event(selected_station, "visit_updated", difference)
+            st.success(f"Intervention for {selected_station} saved locally.")
+            st.rerun()
+        except ValueError as exc:
+            st.error(str(exc))
+
+    st.markdown("#### Incident closure")
+    st.caption("Select only faults actually fixed during a resolved visit.")
+    linked_ids = next((item["Incident IDs"].split(", ") for item in snapshot["recommendations"] if item["Station"] == selected_station), [])
+    current_closures = st.session_state.interventions[selected_station].get("resolved_incident_ids", [])
+    with st.form("incident_closure_form"):
+        closed_ids = st.multiselect("Incidents confirmed resolved", linked_ids, default=[item for item in current_closures if item in linked_ids])
+        close_submitted = st.form_submit_button("Save incident closure")
+    if close_submitted:
+        try:
+            previous = dict(st.session_state.interventions[selected_station])
+            updated = select_incident_closures(st.session_state.interventions, selected_station, closed_ids, linked_ids)
+            difference = describe_closure_change(previous, updated[selected_station])
+            save_interventions(updated)
+            if previous.get("resolved_incident_ids", []) != updated[selected_station].get("resolved_incident_ids", []):
+                record_event(selected_station, "incidents_confirmed", difference)
+            st.session_state.interventions = updated
+            st.rerun()
+        except ValueError as exc:
+            st.error(str(exc))
+
+    intervention_rows = [
+        {
+            "Station": item["station_id"],
+            "Rank": item["rank"],
+            "Crew": item["crew"],
+            "Status": item["status"],
+            "Visit date": item["scheduled_for"].isoformat() if item["scheduled_for"] else "",
+            "Resolution note": item["resolution_note"],
+        }
+        for item in st.session_state.interventions.values()
+    ]
+    st.dataframe(pd.DataFrame(intervention_rows), hide_index=True, width="stretch")
+    if st.button("Reset demo interventions"):
+        st.session_state.interventions = initial_interventions(snapshot["recommendations"])
+        save_interventions(st.session_state.interventions)
+        record_event("ALL", "demo_reset", "All five intervention records reset to Pending")
+        st.rerun()
+
+
+
+with tab_incidents:
+    st.subheader("Incident explorer")
+    incidents = pd.DataFrame(incident_statuses(snapshot["incidents"], st.session_state.interventions))
+    left, right = st.columns(2)
+    with left:
+        region = st.selectbox("Region", ["All", *sorted(incidents["Region"].unique())])
+    with right:
+        status = st.selectbox("Status", ["All", *sorted(incidents["Status"].unique())])
+    filtered = incidents.copy()
+    if region != "All":
+        filtered = filtered[filtered["Region"] == region]
+    if status != "All":
+        filtered = filtered[filtered["Status"] == status]
+    st.dataframe(filtered, hide_index=True, width="stretch")
+    active_rows = incidents[incidents["Status"].isin(["Open", "Assigned", "In Progress"])]
+    st.metric("Active incidents after confirmed closures", len(active_rows))
+    st.caption("Active stations after confirmed closures: " + str(active_rows["Station"].nunique()))
+    st.caption("Synthetic data · Locally saved intervention records · No real dispatch or shared database.")
+
+
+with tab_history:
+    st.subheader("Change history")
+    st.caption("Local single-user audit log. Times are UTC; changes before this feature was added are not included.")
+    try:
+        events = read_history()
+    except ValueError as exc:
+        st.error(f"Local audit history needs attention: {exc}")
+        events = []
+    if events:
+        st.dataframe(
+            pd.DataFrame(reversed(events)).rename(columns={
+                "timestamp_utc": "Timestamp (UTC)",
+                "station": "Station",
+                "action": "Action",
+                "details": "Changes",
+            }),
+            hide_index=True,
+            width="stretch",
+        )
+    else:
+        st.info("No changes have been recorded yet.")
+
+
+
+st.markdown(
+    '<div class="voltora-footer">VOLTORA · Synthetic portfolio project · '
+    'Local single-user prototype · No live dispatch or production data</div>',
+    unsafe_allow_html=True,
+)
