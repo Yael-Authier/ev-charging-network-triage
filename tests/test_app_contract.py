@@ -49,3 +49,17 @@ def test_public_app_has_no_shared_filesystem_writes():
     assert "load_interventions(" not in source
     assert "read_history(" not in source
     assert "st.session_state.history" in source
+
+
+def test_public_tables_use_static_cards_not_dynamic_dataframe():
+    source = (ROOT / "app.py").read_text(encoding="utf-8")
+    assert "st.dataframe(" not in source
+    assert "st.table(" not in source
+    assert "render_static_records(" in source
+    assert "escape(shown)" in source
+
+
+def test_static_cards_have_responsive_styles():
+    css = (ROOT / "demo" / "voltora.css").read_text(encoding="utf-8")
+    assert ".voltora-record" in css
+    assert "minmax(145px, 1fr)" in css
