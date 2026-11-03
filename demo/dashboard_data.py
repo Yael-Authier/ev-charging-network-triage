@@ -34,12 +34,21 @@ def dashboard_snapshot(*, as_of: date = AS_OF) -> dict:
         for row in rows
     ]
     queue = rank_visits(incidents, as_of=as_of, capacity=5)
+    breakdowns = {}
+    for rec in queue:
+        group = [inc for inc in incidents if inc.station_id == rec.station_id and inc.status in {"open", "assigned", "in_progress"}]
+        severity = max({"low": 10, "medium": 30, "high": 55, "critical": 80}[inc.severity] for inc in group)
+        age = min(max((as_of - inc.opened_on).days for inc in group), 14)
+        connectors = min(max(inc.estimated_affected_connectors for inc in group), 4) * 5
+        repeats = min(len(group) - 1, 3) * 5
+        breakdowns[rec.station_id] = f"Severity {severity} + Age {age} + Connectors {connectors} + Repeats {repeats}"
     recommendations = [
         {
             "Rank": rec.rank,
             "Station": rec.station_id,
             "Region": rec.region.title(),
             "Priority score": rec.score,
+            "Score breakdown": breakdowns[rec.station_id],
             "Why this visit": " · ".join(REASON_LABELS.get(reason, reason) for reason in rec.reason_codes),
             "Incident IDs": ", ".join(rec.incident_ids),
         }
