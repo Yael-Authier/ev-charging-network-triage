@@ -63,7 +63,7 @@ metrics = intervention_metrics(st.session_state.interventions, as_of=snapshot["a
 st.caption(f"Snapshot {snapshot['as_of'].isoformat()} · 40 stations · 5 weekly field visits · Independent browser-session demo")
 a, b, c, d = st.columns(4)
 a.metric("ACTIVE INCIDENTS", len(active), delta=len(active) - snapshot["open_incident_count"], delta_color="inverse")
-b.metric("AFFECTED STATIONS", active["Station"].nunique())
+b.metric("AFFECTED SITES", active["Station"].nunique())
 c.metric("VISITS ASSIGNED", metrics["assigned"])
 d.metric("VISITS RESOLVED", metrics["resolved"])
 st.caption(
@@ -219,7 +219,13 @@ with tab_incidents:
     st.caption(f"{len(filtered)} incidents match the selected filters.")
     page_size = 8
     page_count = max(1, (len(filtered) + page_size - 1) // page_size)
-    page = st.number_input("Page", min_value=1, max_value=page_count, value=1, step=1, key=f"incident_page_{region}_{status}")
+    if page_count > 1:
+        page = st.radio(
+            "Page", list(range(1, page_count + 1)),
+            horizontal=True, key=f"incident_page_{region}_{status}",
+        )
+    else:
+        page = 1
     start = (page - 1) * page_size
     st.caption(f"Showing {start + 1 if len(filtered) else 0}–{min(start + page_size, len(filtered))} of {len(filtered)}")
     render_static_records(filtered.iloc[start:start + page_size], columns=list(filtered.columns))
