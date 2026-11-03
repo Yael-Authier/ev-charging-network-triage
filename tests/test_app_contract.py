@@ -63,3 +63,17 @@ def test_static_cards_have_responsive_styles():
     css = (ROOT / "demo" / "voltora.css").read_text(encoding="utf-8")
     assert ".voltora-record" in css
     assert "minmax(145px, 1fr)" in css
+
+
+def test_public_controls_avoid_selectbox_and_multiselect():
+    source = (ROOT / "app.py").read_text(encoding="utf-8")
+    assert "st.selectbox(" not in source
+    assert "st.multiselect(" not in source
+    assert "st.radio(" in source
+    assert "st.checkbox(" in source
+
+
+def test_incident_explorer_is_paginated():
+    source = (ROOT / "app.py").read_text(encoding="utf-8")
+    assert "page_size = 8" in source
+    assert "filtered.iloc[start:start + page_size]" in source
