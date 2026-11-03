@@ -120,13 +120,14 @@ with tab_work:
     m4.metric("Overdue visits", metrics["overdue"])
 
     station_options = [item["Station"] for item in snapshot["recommendations"]]
-    selected_station = st.selectbox("Select recommended station", station_options)
+    selected_station = st.radio("Select recommended station", station_options, horizontal=True, key="station_choice")
     current = st.session_state.interventions[selected_station]
     with st.form("intervention_form"):
-        crew = st.selectbox("Assigned crew", CREWS, index=CREWS.index(current["crew"]))
-        status_value = st.selectbox(
+        crew = st.radio("Assigned crew", CREWS, index=CREWS.index(current["crew"]), horizontal=True, key=f"crew_{selected_station}")
+        status_value = st.radio(
             "Intervention status", ALLOWED_STATUSES,
             index=ALLOWED_STATUSES.index(current["status"]),
+            horizontal=True, key=f"status_{selected_station}",
         )
         planned_date = st.date_input(
             "Visit date (used for scheduled / in-progress visits)",
@@ -161,7 +162,14 @@ with tab_work:
     linked_ids = next((item["Incident IDs"].split(", ") for item in snapshot["recommendations"] if item["Station"] == selected_station), [])
     current_closures = st.session_state.interventions[selected_station].get("resolved_incident_ids", [])
     with st.form("incident_closure_form"):
-        closed_ids = st.multiselect("Incidents confirmed resolved", linked_ids, default=[item for item in current_closures if item in linked_ids])
+        st.caption("Mark each incident confirmed resolved:")
+        closed_ids = [
+            incident_id for incident_id in linked_ids
+            if st.checkbox(
+                incident_id, value=incident_id in current_closures,
+                key=f"closure_{selected_station}_{incident_id}",
+            )
+        ]
         close_submitted = st.form_submit_button("Save incident closure")
     if close_submitted:
         try:
@@ -200,16 +208,21 @@ with tab_incidents:
     incidents = pd.DataFrame(incident_statuses(snapshot["incidents"], st.session_state.interventions))
     left, right = st.columns(2)
     with left:
-        region = st.selectbox("Region", ["All", *sorted(incidents["Region"].unique())])
+        region = st.radio("Region", ["All", *sorted(incidents["Region"].unique())], horizontal=True)
     with right:
-        status = st.selectbox("Status", ["All", *sorted(incidents["Status"].unique())])
+        status = st.radio("Status", ["All", *sorted(incidents["Status"].unique())], horizontal=True)
     filtered = incidents.copy()
     if region != "All":
         filtered = filtered[filtered["Region"] == region]
     if status != "All":
         filtered = filtered[filtered["Status"] == status]
     st.caption(f"{len(filtered)} incidents match the selected filters.")
-    render_static_records(filtered, columns=list(filtered.columns))
+    page_size = 8
+    page_count = max(1, (len(filtered) + page_size - 1) // page_size)
+    page = st.number_input("Page", min_value=1, max_value=page_count, value=1, step=1, key=f"incident_page_{region}_{status}")
+    start = (page - 1) * page_size
+    st.caption(f"Showing {start + 1 if len(filtered) else 0}–{min(start + page_size, len(filtered))} of {len(filtered)}")
+    render_static_records(filtered.iloc[start:start + page_size], columns=list(filtered.columns))
     st.caption("Synthetic data · Isolated, temporary session changes · No real dispatch or shared database.")
 
 
