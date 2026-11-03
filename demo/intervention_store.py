@@ -87,10 +87,18 @@ def load_interventions(
                 raise ValueError("Missing saved visit date")
             if status == "Resolved" and not note.strip():
                 raise ValueError("Missing saved resolution note")
+            closures = record.get("resolved_incident_ids", [])
+            if not isinstance(closures, list) or any(not isinstance(item, str) for item in closures):
+                raise ValueError("Invalid saved incident closures")
+            if len(closures) != len(set(closures)):
+                raise ValueError("Duplicate saved incident closures")
+            if closures and status != "Resolved":
+                raise ValueError("Incident closures require a resolved visit")
             initial[station].update(
                 crew=crew, status=status,
                 scheduled_for=scheduled_date,
                 resolution_note=note,
+                resolved_incident_ids=closures,
             )
     except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
         raise ValueError(f"Could not read local interventions: {exc}") from exc
