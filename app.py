@@ -9,6 +9,10 @@ import pandas as pd
 import streamlit as st
 
 from demo.dashboard_data import dashboard_snapshot
+from demo.interventions import (
+    ALLOWED_STATUSES, CREWS, initial_interventions, intervention_metrics,
+    update_intervention,
+)
 
 st.set_page_config(page_title="Voltora | Operations Triage", page_icon="⚡", layout="wide")
 
@@ -52,6 +56,70 @@ with st.expander("How the provisional priority score works"):
     )
 
 st.divider()
+st.subheader("Intervention management")
+st.caption(
+    "Interactive session-only workflow. Changes remain in this browser session "
+    "and do not dispatch technicians or update the incident source data."
+)
+if "interventions" not in st.session_state:
+    st.session_state.interventions = initial_interventions(snapshot["recommendations"])
+
+metrics = intervention_metrics(st.session_state.interventions, as_of=snapshot["as_of"])
+m1, m2, m3, m4 = st.columns(4)
+m1.metric("Visits planned", metrics["planned"])
+m2.metric("Crews assigned", metrics["assigned"])
+m3.metric("Visits resolved", metrics["resolved"])
+m4.metric("Overdue visits", metrics["overdue"])
+
+station_options = [item["Station"] for item in snapshot["recommendations"]]
+selected_station = st.selectbox("Select recommended station", station_options)
+current = st.session_state.interventions[selected_station]
+with st.form("intervention_form"):
+    crew = st.selectbox("Assigned crew", CREWS, index=CREWS.index(current["crew"]))
+    status_value = st.selectbox(
+        "Intervention status", ALLOWED_STATUSES,
+        index=ALLOWED_STATUSES.index(current["status"]),
+    )
+    planned_date = st.date_input(
+        "Visit date (used for scheduled / in-progress visits)",
+        value=current["scheduled_for"] or snapshot["as_of"],
+    )
+    resolution_note = st.text_area(
+        "Resolution note (required when resolved)", value=current["resolution_note"]
+    )
+    submitted = st.form_submit_button("Save intervention", type="primary")
+if submitted:
+    try:
+        st.session_state.interventions = update_intervention(
+            st.session_state.interventions,
+            selected_station,
+            crew=crew,
+            status=status_value,
+            scheduled_for=planned_date if status_value != "Pending" else None,
+            resolution_note=resolution_note,
+        )
+        st.success(f"Intervention for {selected_station} updated in this session.")
+        st.rerun()
+    except ValueError as exc:
+        st.error(str(exc))
+
+intervention_rows = [
+    {
+        "Station": item["station_id"],
+        "Rank": item["rank"],
+        "Crew": item["crew"],
+        "Status": item["status"],
+        "Visit date": item["scheduled_for"].isoformat() if item["scheduled_for"] else "",
+        "Resolution note": item["resolution_note"],
+    }
+    for item in st.session_state.interventions.values()
+]
+st.dataframe(pd.DataFrame(intervention_rows), hide_index=True, use_container_width=True)
+if st.button("Reset demo interventions"):
+    st.session_state.interventions = initial_interventions(snapshot["recommendations"])
+    st.rerun()
+
+st.divider()
 st.subheader("Incident explorer")
 incidents = pd.DataFrame(snapshot["incidents"])
 left, right = st.columns(2)
@@ -65,7 +133,4 @@ if region != "All":
 if status != "All":
     filtered = filtered[filtered["Status"] == status]
 st.dataframe(filtered, hide_index=True, use_container_width=True)
-st.caption(
-    "Read-only MVP · Next iteration: technician assignment, intervention statuses, "
-    "resolution notes and an operational scorecard."
-)
+st.caption("Synthetic data · Session-only intervention records · No real dispatch or persistent storage.")
