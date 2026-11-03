@@ -1,7 +1,7 @@
-"""Explainable operational triage for the portfolio demo.
+﻿"""Explainable operational triage for the portfolio demo.
 
 This module uses only observed-style synthetic incident fields. It does not
-import generator code, access latent ground truth, or implement the formal ERV.
+depend on synthetic-world internals, use latent truth, or implement formal ERV.
 """
 from __future__ import annotations
 
@@ -95,3 +95,4 @@ def rank_visits(
         for i, (score, station_id, region, reasons, ids)
         in enumerate(candidates[:capacity], start=1)
     ]
+
