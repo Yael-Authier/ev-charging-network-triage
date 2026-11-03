@@ -22,3 +22,4 @@ venv/
 Thumbs.db
 # Local synthetic demo state (never commit user edits)
 demo/interventions.local.json
+demo/history.local.json
