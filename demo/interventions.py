@@ -50,6 +50,10 @@ def update_intervention(
         status=status,
         scheduled_for=scheduled_for,
         resolution_note=resolution_note.strip(),
+        resolved_incident_ids=(
+            list(updated[station_id].get("resolved_incident_ids", []))
+            if status == "Resolved" else []
+        ),
     )
     return updated
 
