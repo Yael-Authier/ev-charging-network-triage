@@ -1,0 +1,23 @@
+/* Voltora command center — product identity for Streamlit */
+:root { color-scheme: dark; }
+.stApp { background: radial-gradient(ellipse at 85% 0%, #17303a 0%, #101923 39%, #0d151e 100%); color: #e9f1f5; }
+[data-testid="stHeader"] { background: rgba(13,21,30,.88); }
+.block-container { max-width: 1260px; padding-top: 2.5rem; padding-bottom: 3rem; }
+h1, h2, h3 { letter-spacing: -.035em; }
+h1 { color: #f4f7fb !important; font-weight: 800 !important; }
+h2, h3 { color: #f0f6f8 !important; }
+[data-testid="stMetric"] { background: #192632; border: 1px solid #2a404c; border-radius: 14px; padding: 16px 18px; min-height: 116px; }
+[data-testid="stMetricLabel"] { color: #a8bac5; }
+[data-testid="stMetricValue"] { color: #e7f6f1; }
+[data-testid="stVerticalBlockBorderWrapper"] { border-color: #30404e; }
+[data-testid="stDataFrame"] { border: 1px solid #2a404c; border-radius: 12px; overflow: hidden; }
+[data-testid="stForm"] { border: 1px solid #30404e; border-radius: 16px; background: #15232d; padding: 16px; }
+.stButton button[kind="primary"], [data-testid="stFormSubmitButton"] button[kind="primary"] { background: #55e0c4; color: #10212a; border: 0; font-weight: 700; }
+.stButton button[kind="primary"]:hover, [data-testid="stFormSubmitButton"] button[kind="primary"]:hover { background: #81f3da; color: #10212a; }
+[data-testid="stTabs"] [data-baseweb="tab-list"] { gap: 10px; border-bottom: 1px solid #30404e; }
+[data-testid="stTabs"] button[role="tab"] { border-radius: 9px 9px 0 0; font-weight: 650; }
+[data-testid="stTabs"] button[aria-selected="true"] { color: #55e0c4; }
+[data-testid="stAlert"] { border-radius: 12px; }
+.voltora-kicker { color: #55e0c4; font-size: .75rem; letter-spacing: .19em; font-weight: 800; }
+.voltora-subtitle { color: #a8bac5; font-size: 1rem; margin-top: -.7rem; margin-bottom: 1.3rem; }
+.voltora-footer { color: #8fa8b6; font-size: .82rem; padding-top: 1rem; border-top: 1px solid #30404e; }
