@@ -10,7 +10,7 @@ scipy>=1.13            # distributions and statistical tests
 matplotlib>=3.8        # charts
 
 # App
-streamlit>=1.35
+streamlit==1.51.0
 
 # Tests
 pytest>=8.0
