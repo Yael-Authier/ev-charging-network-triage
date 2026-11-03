@@ -17,6 +17,7 @@ def initial_interventions(recommendations: list[dict]) -> dict[str, dict]:
             "status": "Pending",
             "scheduled_for": None,
             "resolution_note": "",
+            "resolved_incident_ids": [],
         }
         for item in recommendations
     }
