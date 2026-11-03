@@ -54,3 +54,34 @@ def test_unknown_station_rejected():
     with pytest.raises(ValueError, match="Unknown"):
         update_intervention(initial_interventions(QUEUE), "ST-999", crew="North crew",
                             status="Pending", scheduled_for=None, resolution_note="")
+
+
+def test_region_restriction():
+    queue = [{"Station": "ST-001", "Rank": 1, "Region": "Central"}]
+    state = initial_interventions(queue)
+    with pytest.raises(ValueError, match="regional crew"):
+        update_intervention(state, "ST-001", crew="North crew", status="Scheduled",
+                            scheduled_for=TODAY, resolution_note="")
+    assert update_intervention(state, "ST-001", crew="Central crew", status="Scheduled",
+                               scheduled_for=TODAY, resolution_note="")["ST-001"]["crew"] == "Central crew"
+
+
+def test_crew_cannot_have_two_active_visits_same_day():
+    queue = [{"Station": "ST-001", "Rank": 1, "Region": "North"},
+             {"Station": "ST-002", "Rank": 2, "Region": "North"}]
+    state = initial_interventions(queue)
+    state = update_intervention(state, "ST-001", crew="North crew", status="Scheduled",
+                                scheduled_for=TODAY, resolution_note="")
+    with pytest.raises(ValueError, match="already booked"):
+        update_intervention(state, "ST-002", crew="North crew", status="In progress",
+                            scheduled_for=TODAY, resolution_note="")
+    assert update_intervention(state, "ST-002", crew="North crew", status="Scheduled",
+                               scheduled_for=TODAY + timedelta(days=1),
+                               resolution_note="")["ST-002"]["status"] == "Scheduled"
+
+
+def test_blocked_requires_reason():
+    state = initial_interventions(QUEUE)
+    with pytest.raises(ValueError, match="blocking reason"):
+        update_intervention(state, "ST-001", crew="North crew", status="Blocked",
+                            scheduled_for=TODAY, resolution_note="")
