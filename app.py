@@ -9,6 +9,7 @@ import pandas as pd
 import streamlit as st
 
 from demo.dashboard_data import dashboard_snapshot
+from demo.intervention_store import load_interventions, save_interventions
 from demo.interventions import (
     ALLOWED_STATUSES, CREWS, initial_interventions, intervention_metrics,
     update_intervention,
@@ -41,7 +42,7 @@ st.write(
     "and repeated open incidents. Scores are comparative heuristic points, not predicted impact."
 )
 recommendations = pd.DataFrame(snapshot["recommendations"])
-st.dataframe(recommendations, hide_index=True, use_container_width=True)
+st.dataframe(recommendations, hide_index=True, width="stretch")
 
 with st.expander("How the provisional priority score works"):
     st.markdown(
@@ -58,11 +59,15 @@ with st.expander("How the provisional priority score works"):
 st.divider()
 st.subheader("Intervention management")
 st.caption(
-    "Interactive session-only workflow. Changes remain in this browser session "
-    "and do not dispatch technicians or update the incident source data."
+    "Single-user local demo. Changes are saved on this computer, "
+    "but do not dispatch technicians or update incident source data."
 )
 if "interventions" not in st.session_state:
-    st.session_state.interventions = initial_interventions(snapshot["recommendations"])
+    try:
+        st.session_state.interventions = load_interventions(snapshot["recommendations"])
+    except ValueError as exc:
+        st.error(f"Local intervention file needs attention: {exc}")
+        st.stop()
 
 metrics = intervention_metrics(st.session_state.interventions, as_of=snapshot["as_of"])
 m1, m2, m3, m4 = st.columns(4)
@@ -98,7 +103,8 @@ if submitted:
             scheduled_for=planned_date if status_value != "Pending" else None,
             resolution_note=resolution_note,
         )
-        st.success(f"Intervention for {selected_station} updated in this session.")
+        save_interventions(st.session_state.interventions)
+        st.success(f"Intervention for {selected_station} saved locally.")
         st.rerun()
     except ValueError as exc:
         st.error(str(exc))
@@ -114,9 +120,10 @@ intervention_rows = [
     }
     for item in st.session_state.interventions.values()
 ]
-st.dataframe(pd.DataFrame(intervention_rows), hide_index=True, use_container_width=True)
+st.dataframe(pd.DataFrame(intervention_rows), hide_index=True, width="stretch")
 if st.button("Reset demo interventions"):
     st.session_state.interventions = initial_interventions(snapshot["recommendations"])
+    save_interventions(st.session_state.interventions)
     st.rerun()
 
 st.divider()
@@ -132,5 +139,5 @@ if region != "All":
     filtered = filtered[filtered["Region"] == region]
 if status != "All":
     filtered = filtered[filtered["Status"] == status]
-st.dataframe(filtered, hide_index=True, use_container_width=True)
-st.caption("Synthetic data · Session-only intervention records · No real dispatch or persistent storage.")
+st.dataframe(filtered, hide_index=True, width="stretch")
+st.caption("Synthetic data · Locally saved intervention records · No real dispatch or shared database.")
