@@ -33,3 +33,10 @@ def test_streamlit_native_dark_theme():
     assert config["theme"]["base"] == "dark"
     assert config["theme"]["backgroundColor"] == "#101923"
     assert config["theme"]["textColor"] == "#E9F1F5"
+
+
+def test_queue_shows_current_visit_status_without_redundant_incident_metric():
+    source = (ROOT / "app.py").read_text(encoding="utf-8")
+    assert '"Visit status"' in source
+    assert 'st.session_state.interventions[station]["status"]' in source
+    assert 'st.metric("Active incidents after confirmed closures"' not in source
