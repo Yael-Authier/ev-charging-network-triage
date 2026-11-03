@@ -24,3 +24,12 @@ def test_operational_sections_still_present():
         "save_interventions(", "select_incident_closures(", "record_event(",
     ):
         assert feature in source
+
+
+def test_streamlit_native_dark_theme():
+    import tomllib
+
+    config = tomllib.loads((ROOT / ".streamlit" / "config.toml").read_text(encoding="utf-8"))
+    assert config["theme"]["base"] == "dark"
+    assert config["theme"]["backgroundColor"] == "#101923"
+    assert config["theme"]["textColor"] == "#E9F1F5"
