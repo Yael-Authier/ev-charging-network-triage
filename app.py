@@ -65,7 +65,23 @@ with tab_queue:
         "and repeated open incidents. Scores are comparative heuristic points, not predicted impact."
     )
     recommendations = pd.DataFrame(snapshot["recommendations"])
-    st.dataframe(recommendations, hide_index=True, width="stretch")
+    recommendations.insert(
+        3,
+        "Visit status",
+        recommendations["Station"].map(
+            lambda station: st.session_state.interventions[station]["status"]
+        ),
+    )
+    st.dataframe(
+        recommendations,
+        hide_index=True,
+        width="stretch",
+        column_config={
+            "Visit status": st.column_config.TextColumn(
+                "Visit status", help="Current status of the frozen weekly visit plan"
+            ),
+        },
+    )
 
     with st.expander("How the provisional priority score works"):
         st.markdown(
@@ -88,13 +104,6 @@ with tab_work:
         "Single-user local demo. Changes are saved on this computer, "
         "but do not dispatch technicians or update incident source data."
     )
-    if "interventions" not in st.session_state:
-        try:
-            st.session_state.interventions = load_interventions(snapshot["recommendations"])
-        except ValueError as exc:
-            st.error(f"Local intervention file needs attention: {exc}")
-            st.stop()
-
     metrics = intervention_metrics(st.session_state.interventions, as_of=snapshot["as_of"])
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Visits planned", metrics["planned"])
@@ -194,9 +203,6 @@ with tab_incidents:
     if status != "All":
         filtered = filtered[filtered["Status"] == status]
     st.dataframe(filtered, hide_index=True, width="stretch")
-    active_rows = incidents[incidents["Status"].isin(["Open", "Assigned", "In Progress"])]
-    st.metric("Active incidents after confirmed closures", len(active_rows))
-    st.caption("Active stations after confirmed closures: " + str(active_rows["Station"].nunique()))
     st.caption("Synthetic data · Locally saved intervention records · No real dispatch or shared database.")
 
 
