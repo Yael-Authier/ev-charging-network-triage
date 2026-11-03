@@ -21,7 +21,7 @@ def test_operational_sections_still_present():
     source = (ROOT / "app.py").read_text(encoding="utf-8")
     for feature in (
         "tab_queue", "tab_work", "tab_incidents", "tab_history",
-        "save_interventions(", "select_incident_closures(", "record_event(",
+        "new_demo_state(", "select_incident_closures(", "record_visit_change(",
     ):
         assert feature in source
 
@@ -40,3 +40,12 @@ def test_queue_shows_current_visit_status_without_redundant_incident_metric():
     assert '"Visit status"' in source
     assert 'st.session_state.interventions[station]["status"]' in source
     assert 'st.metric("Active incidents after confirmed closures"' not in source
+
+
+def test_public_app_has_no_shared_filesystem_writes():
+    source = (ROOT / "app.py").read_text(encoding="utf-8")
+    assert "save_interventions(" not in source
+    assert "record_event(" not in source
+    assert "load_interventions(" not in source
+    assert "read_history(" not in source
+    assert "st.session_state.history" in source
