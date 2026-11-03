@@ -9,6 +9,9 @@ import pandas as pd
 import streamlit as st
 
 from demo.dashboard_data import dashboard_snapshot
+from demo.audit_history import (
+    read_history, record_event, describe_intervention_change, describe_closure_change,
+)
 from demo.incident_closure import incident_statuses, select_incident_closures
 from demo.intervention_store import load_interventions, save_interventions
 from demo.interventions import (
@@ -96,7 +99,8 @@ with st.form("intervention_form"):
     submitted = st.form_submit_button("Save intervention", type="primary")
 if submitted:
     try:
-        st.session_state.interventions = update_intervention(
+        previous = dict(st.session_state.interventions[selected_station])
+        updated = update_intervention(
             st.session_state.interventions,
             selected_station,
             crew=crew,
@@ -104,7 +108,11 @@ if submitted:
             scheduled_for=planned_date if status_value != "Pending" else None,
             resolution_note=resolution_note,
         )
-        save_interventions(st.session_state.interventions)
+        difference = describe_intervention_change(previous, updated[selected_station])
+        save_interventions(updated)
+        st.session_state.interventions = updated
+        if difference:
+            record_event(selected_station, "visit_updated", difference)
         st.success(f"Intervention for {selected_station} saved locally.")
         st.rerun()
     except ValueError as exc:
@@ -119,8 +127,12 @@ with st.form("incident_closure_form"):
     close_submitted = st.form_submit_button("Save incident closure")
 if close_submitted:
     try:
+        previous = dict(st.session_state.interventions[selected_station])
         updated = select_incident_closures(st.session_state.interventions, selected_station, closed_ids, linked_ids)
+        difference = describe_closure_change(previous, updated[selected_station])
         save_interventions(updated)
+        if previous.get("resolved_incident_ids", []) != updated[selected_station].get("resolved_incident_ids", []):
+            record_event(selected_station, "incidents_confirmed", difference)
         st.session_state.interventions = updated
         st.rerun()
     except ValueError as exc:
@@ -141,7 +153,30 @@ st.dataframe(pd.DataFrame(intervention_rows), hide_index=True, width="stretch")
 if st.button("Reset demo interventions"):
     st.session_state.interventions = initial_interventions(snapshot["recommendations"])
     save_interventions(st.session_state.interventions)
+    record_event("ALL", "demo_reset", "All five intervention records reset to Pending")
     st.rerun()
+
+st.divider()
+st.subheader("Change history")
+st.caption("Local single-user audit log. Times are UTC; changes before this feature was added are not included.")
+try:
+    events = read_history()
+except ValueError as exc:
+    st.error(f"Local audit history needs attention: {exc}")
+    events = []
+if events:
+    st.dataframe(
+        pd.DataFrame(reversed(events)).rename(columns={
+            "timestamp_utc": "Timestamp (UTC)",
+            "station": "Station",
+            "action": "Action",
+            "details": "Changes",
+        }),
+        hide_index=True,
+        width="stretch",
+    )
+else:
+    st.info("No changes have been recorded yet.")
 
 st.divider()
 st.subheader("Incident explorer")
