@@ -77,3 +77,15 @@ def test_incident_explorer_is_paginated():
     source = (ROOT / "app.py").read_text(encoding="utf-8")
     assert "page_size = 8" in source
     assert "filtered.iloc[start:start + page_size]" in source
+
+
+def test_public_pagination_avoids_number_input_bundle():
+    source = (ROOT / "app.py").read_text(encoding="utf-8")
+    assert "st.number_input(" not in source
+    assert '"Page", list(range(1, page_count + 1))' in source
+    assert "if page_count > 1:" in source
+
+
+def test_kpi_labels_fit_four_column_layout():
+    source = (ROOT / "app.py").read_text(encoding="utf-8")
+    assert 'b.metric("AFFECTED SITES"' in source
