@@ -159,5 +159,5 @@ if status != "All":
 st.dataframe(filtered, hide_index=True, width="stretch")
 active_rows = incidents[incidents["Status"].isin(["Open", "Assigned", "In Progress"])]
 st.metric("Active incidents after confirmed closures", len(active_rows))
-st.caption(f"Active stations after confirmed closures: {active_rows[\u0027Station\u0027].nunique()}")
+st.caption("Active stations after confirmed closures: " + str(active_rows["Station"].nunique()))
 st.caption("Synthetic data · Locally saved intervention records · No real dispatch or shared database.")
