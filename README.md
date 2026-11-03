@@ -27,6 +27,8 @@ When field capacity is constrained, incident lists alone do not answer the most 
 
 **Decision output:** one ranked weekly plan with five distinct stations, explanation codes and a lightweight intervention workflow.
 
+**[Open the live Voltora demo](https://ev-charging-network-triage-c5gfb2y7uupxmzzgul9aqg.streamlit.app/)** · Session-only, fictional data · No login required.
+
 ## 🖥️ Product walkthrough
 
 The Streamlit interface uses a dark **Network Operations Command Center** design with four sections:
@@ -55,7 +57,7 @@ The portfolio MVP ranks stations using an **explainable, provisional heuristic**
 3. Estimated number of affected connectors.
 4. Multiple active incidents at one station.
 
-The five highest-priority **distinct stations** form the weekly plan. Each recommendation includes a score and human-readable reasons.
+The five highest-priority **distinct stations** form the weekly plan. Each recommendation includes a score, an auditable point-by-point breakdown and human-readable reasons.
 
 **Important:** heuristic points are **not** predicted recovered energy, causal impact, or a validated optimization result. The formal Expected Recovered Value (ERV) research and preregistered evaluation described in the methodology documents are separate, unfinished work. The MVP does not claim to implement or validate ERV.
 
@@ -83,7 +85,7 @@ Explicit incident-by-incident closure
 Updated active-incident KPIs + local change history
 ```
 
-The demo includes validation rules: a crew is required before a visit progresses, a resolution note is required to resolve a visit, and only incidents associated with a resolved visit may be marked closed.
+The demo includes validation rules: a crew is required before a visit progresses; crews must match station regions and cannot have two active visits on the same date; blocked visits require a reason; resolved visits require a resolution note; and only incidents associated with a resolved visit may be marked closed. These are simplified fictional scheduling policies, not a production dispatch engine.
 
 ---
 
@@ -159,7 +161,7 @@ Open the local address printed by Streamlit (usually `http://localhost:8501`).
 1. Push this branch to GitHub and verify the automated tests pass.
 2. Open [Streamlit Community Cloud](https://share.streamlit.io/) and sign in with GitHub.
 3. Choose **Create app**, select repository `Yael-Authier/ev-charging-network-triage`, branch `public-session-demo`, and entrypoint `app.py`.
-4. Deploy. Copy the generated public URL into your portfolio and README after checking it works in a private browser window.
+4. Deploy and verify the public URL in a private browser window. The current demo URL is linked near the top of this README.
 
 No database credentials or API keys are required. Community Cloud may restart sleeping apps, which resets temporary sessions.
 
