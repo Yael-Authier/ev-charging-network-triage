@@ -9,6 +9,7 @@ import pandas as pd
 import streamlit as st
 
 from demo.dashboard_data import dashboard_snapshot
+from demo.incident_closure import incident_statuses, select_incident_closures
 from demo.intervention_store import load_interventions, save_interventions
 from demo.interventions import (
     ALLOWED_STATUSES, CREWS, initial_interventions, intervention_metrics,
@@ -109,6 +110,22 @@ if submitted:
     except ValueError as exc:
         st.error(str(exc))
 
+st.markdown("#### Incident closure")
+st.caption("Select only faults actually fixed during a resolved visit.")
+linked_ids = next((item["Incident IDs"].split(", ") for item in snapshot["recommendations"] if item["Station"] == selected_station), [])
+current_closures = st.session_state.interventions[selected_station].get("resolved_incident_ids", [])
+with st.form("incident_closure_form"):
+    closed_ids = st.multiselect("Incidents confirmed resolved", linked_ids, default=[item for item in current_closures if item in linked_ids])
+    close_submitted = st.form_submit_button("Save incident closure")
+if close_submitted:
+    try:
+        updated = select_incident_closures(st.session_state.interventions, selected_station, closed_ids, linked_ids)
+        save_interventions(updated)
+        st.session_state.interventions = updated
+        st.rerun()
+    except ValueError as exc:
+        st.error(str(exc))
+
 intervention_rows = [
     {
         "Station": item["station_id"],
@@ -128,7 +145,7 @@ if st.button("Reset demo interventions"):
 
 st.divider()
 st.subheader("Incident explorer")
-incidents = pd.DataFrame(snapshot["incidents"])
+incidents = pd.DataFrame(incident_statuses(snapshot["incidents"], st.session_state.interventions))
 left, right = st.columns(2)
 with left:
     region = st.selectbox("Region", ["All", *sorted(incidents["Region"].unique())])
