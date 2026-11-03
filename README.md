@@ -36,7 +36,7 @@ The Streamlit interface uses a dark **Network Operations Command Center** design
 | **Priority queue** | A frozen five-station weekly plan, priority scores, explanations and live visit status |
 | **Interventions** | Crew assignment, scheduling, visit status, resolution notes and selective incident closure |
 | **Incidents** | Searchable/filterable synthetic incident records with confirmed closures reflected in the display |
-| **Change history** | Locally recorded timestamps, stations, actions and change details |
+| **Change history** | Session-only timestamps, stations, actions and change details |
 
 **Key operational distinction:** a resolved technician visit does **not** automatically close every incident at that station. Incident closures must be explicitly confirmed; other faults remain active.
 
@@ -95,7 +95,7 @@ The demo includes validation rules: a crew is required before a visit progresses
 | Synthetic snapshot | Deterministic Python demo generator |
 | Decision logic | Explainable station-level ranking |
 | Workflow rules | Validated Python functions |
-| Local storage | JSON files for intervention state and event history |
+| Local storage | Streamlit session state for public demo; JSON local-storage modules retained for the separate local prototype |
 | Quality | Pytest and GitHub Actions CI |
 
 ```text
@@ -106,8 +106,8 @@ demo/
   dashboard_data.py            Observed-only dashboard data model
   interventions.py             Intervention workflow and validations
   incident_closure.py          Explicit closure overlay
-  intervention_store.py        Local intervention persistence
-  audit_history.py             Local change history
+  intervention_store.py        Local intervention persistence (not used by the public app)
+  audit_history.py             Local history implementation (not used by the public app)
   voltora.css                  Command-center visual identity
 src/
   demo_triage.py               Provisional ranking and reason codes
@@ -125,7 +125,7 @@ Requires Python 3.11 or 3.12 (the versions covered by CI).
 ```bash
 git clone https://github.com/Yael-Authier/ev-charging-network-triage.git
 cd ev-charging-network-triage
-git switch portfolio-mvp-2027
+git switch public-session-demo
 python -m venv .venv
 ```
 
@@ -152,11 +152,20 @@ python -m streamlit run app.py
 
 Open the local address printed by Streamlit (usually `http://localhost:8501`).
 
-**Local state:** the app writes `demo/interventions.local.json` and `demo/history.local.json`. Both are excluded from Git. Closing and restarting the local app preserves saved interventions and history; the **Reset demo interventions** control resets visit state, not the historical event log.
+**Public demo state:** the deployed app uses Streamlit `st.session_state` for interventions and change history. Each independent browser session starts with the same fictional baseline, but changes are **temporary and not shared** with other sessions. Refreshing the same active session may preserve changes; reconnecting or restarting can reset them. **Reset demo interventions** clears both the intervention state and its session history. The local JSON storage modules remain in the repository for the original local prototype, but are not used by the public app.
+
+### ☁️ Deploy to Streamlit Community Cloud
+
+1. Push this branch to GitHub and verify the automated tests pass.
+2. Open [Streamlit Community Cloud](https://share.streamlit.io/) and sign in with GitHub.
+3. Choose **Create app**, select repository `Yael-Authier/ev-charging-network-triage`, branch `public-session-demo`, and entrypoint `app.py`.
+4. Deploy. Copy the generated public URL into your portfolio and README after checking it works in a private browser window.
+
+No database credentials or API keys are required. Community Cloud may restart sleeping apps, which resets temporary sessions.
 
 ## 🧪 Testing
 
-The project uses automated tests for the ranking workflow, deterministic synthetic inputs, intervention validation, selective closure, local persistence, change history, and basic application contracts.
+The project uses automated tests for the ranking workflow, deterministic synthetic inputs, intervention validation, selective closure, local persistence, isolated public sessions, change history, and basic application contracts.
 
 Run:
 
@@ -168,7 +177,7 @@ CI runs tests on Python 3.11 and 3.12. A passing test suite validates covered be
 
 ## 🔒 Scope and limitations
 
-This is a **single-user, local prototype**. It does **not** provide:
+This is a **public, per-browser-session prototype**. It does **not** provide:
 
 - Authentication, permissions or multi-user concurrency.
 - Real technician dispatch, notifications or live external integrations.
@@ -176,7 +185,7 @@ This is a **single-user, local prototype**. It does **not** provide:
 - Dynamic re-optimization of an already-approved weekly plan.
 - Validated ERV, financial impact estimates or a real-world pilot.
 
-The synthetic snapshot is fixed for reproducibility. Local intervention changes are overlays on that snapshot rather than edits to a real source system.
+The synthetic snapshot is fixed for reproducibility. Per-session intervention changes are overlays on that snapshot rather than edits to a real source system.
 
 ## 🧭 Research track and next steps
 
