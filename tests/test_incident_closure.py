@@ -54,3 +54,16 @@ def test_closures_survive_restart(tmp_path):
     save_interventions(state, path)
     restored = load_interventions(QUEUE, path)
     assert restored["ST-023"]["resolved_incident_ids"] == ["INC-0020"]
+
+
+def test_reopened_visit_reactivates_confirmed_incidents():
+    state = select_incident_closures(
+        resolved_visit(), "ST-023", ["INC-0020"], ["INC-0020", "INC-0021"]
+    )
+    state = update_intervention(
+        state, "ST-023", crew="Central crew", status="In progress",
+        scheduled_for=date(2026, 11, 3), resolution_note="Reopened for inspection",
+    )
+    assert state["ST-023"]["resolved_incident_ids"] == []
+    rows = [{"Incident": "INC-0020", "Status": "Open"}]
+    assert incident_statuses(rows, state)[0]["Status"] == "Open"
